@@ -26,9 +26,9 @@ SPI2 GPIO Configuration
    ![Screenshot](https://user-images.githubusercontent.com/46520743/58031685-9084ab00-7b29-11e9-9fb1-8e923621bc9d.png)
 
     
-### HOW TO RUN    
+### HOW TO RUN 
 
-    Build and flash the code for first board .Change #DEFINE BOARD1 to #DEFINE BOARD2 on top of main, build & flash to the 
+   Build and flash the code for first board .Change #DEFINE BOARD1 to #DEFINE BOARD2 on top of main, build & flash to the 
    
  second board. Push button interrupt is enabled in such a way that eveytime the button is pushed a counter is incremented and
  
