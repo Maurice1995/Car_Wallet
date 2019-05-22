@@ -20,6 +20,12 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "smComSCI2C.h"
+#include <stdint.h>
+#include "a71ch_ex.h"
+#include "sci2c.h"
+#include "dwt_delay.h"
+#include "string.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -33,7 +39,9 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define BOARD1
-
+#ifdef BOARD1
+#define STORE_TEST
+#endif
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -44,16 +52,25 @@
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan1;
 
+I2C_HandleTypeDef hi2c1;
+
 SPI_HandleTypeDef hspi2;
 
 /* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
+
 CAN_FilterTypeDef sFilterConfig;
 CAN_TxHeaderTypeDef TxMessage;
 CAN_RxHeaderTypeDef RxMessage;
+
 uint8_t               TxData[8];
 uint8_t               RxData[8];
 uint32_t              TxMailbox;
+
+bool A71CHTestsPassed = false;
+bool NodeMcuTestsPassed = false;
+bool A71CHSignTestPassed = false;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -61,22 +78,27 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_SPI2_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
 void Can_Ayarla();
 int spiReadStatus(uint8_t *readBuffer);
 int spiWriteStatus(uint32_t status);
+int A71CHSignTest();
+int A71CHStoreTest();
+
 /* USER CODE END PFP */
 
-/* Private user code ---------------------------------------------------------*/
-/* USER CODE BEGIN 0 */
+void sm_sleep(uint32_t msec)
+{
+    HAL_Delay(msec);
+}
+void sm_usleep(uint32_t microsec)
+{
+    // HAL_Delay(microsec);
+    DWT_Delay(microsec);
+}
 
-/* USER CODE END 0 */
-
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
 int main(void)
 {
   /* USER CODE BEGIN 1 */
@@ -104,6 +126,7 @@ int main(void)
   MX_GPIO_Init();
   MX_CAN1_Init();
   MX_SPI2_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   Can_Ayarla();
 
@@ -117,17 +140,69 @@ int main(void)
 
   HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
+  #ifdef BOARD1
+
+   uint8_t Atr[64];
+   uint16_t AtrLen = sizeof(Atr);
+   int sw = smComSCI2C_Open(ESTABLISH_SCI2C, 0x00, Atr, &AtrLen);
+
+    if (sw != SW_OK)
+    {
+      A71CHTestsPassed = false;
+    }
+
+  #endif
 
   while (1)
   {
 
-    #ifdef BOARD1
+  #ifdef BOARD1
+
     if(spiTest() < 0)
     {
-        HAL_GPIO_WritePin(GPIOD, GPIO_PIN_15, GPIO_PIN_SET);
+      NodeMcuTestsPassed = false;
     }
+    else
+    {
+      NodeMcuTestsPassed = true;
+    }
+
+
+    if(A71CHSignTest() < 0)
+    {
+      A71CHTestsPassed = false;
+      A71CHSignTestPassed = false;
+    }
+    else
+    {
+      A71CHTestsPassed = true;
+      A71CHSignTestPassed = true;
+    }
+
+  #ifdef STORE_TEST
+
+    if(A71CHStoreTest() < 0)
+    {
+      A71CHTestsPassed = false;
+    }
+    else
+    {
+      if(A71CHSignTestPassed == true)
+      A71CHTestsPassed = true;
+    }
+
+  if(A71CHTestsPassed != true || NodeMcuTestsPassed != true)
+  {
+    HAL_GPIO_TogglePin(GPIOD,GPIO_PIN_14);
+  }
+  else
+  {
+    HAL_GPIO_WritePin(GPIOD,GPIO_PIN_14,GPIO_PIN_RESET);
+  }
+
+  #endif
+  #endif
     HAL_Delay(1000);
-    #endif
 
   }
   /* USER CODE END 3 */
@@ -209,6 +284,40 @@ static void MX_CAN1_Init(void)
   /* USER CODE BEGIN CAN1_Init 2 */
 
   /* USER CODE END CAN1_Init 2 */
+
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 400000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
 
 }
 
@@ -299,8 +408,83 @@ static void MX_GPIO_Init(void)
 
 }
 
-/* USER CODE BEGIN 4 */
+int A71CHSignTest()
+{
 
+  static U8 storeData[] = "RIDDLE & CODE";
+  U8 checkData[16] = {0};
+  U8 shaData[32] = {0};
+  U16 shaDataLen = sizeof(shaData);
+  U8 signatureBuffer[128] = {0};
+  U16 signatureBufferLen = sizeof(signatureBuffer);
+  U8 signResult = 0;
+  U8 pubKey[72] = {0};
+  U16 pubKeyLen = sizeof(pubKey);
+
+  if ( A71_GenerateEccKeyPair(0) == SMCOM_OK)
+  {
+      if ( A71_GetPublicKeyEccKeyPair(0, pubKey, &pubKeyLen) == SMCOM_OK)
+      {
+          if(A71_GetSha256(storeData, sizeof(storeData), shaData, &shaDataLen) == SMCOM_OK)
+          {
+              if( A71_EccSign( 0, shaData, shaDataLen, signatureBuffer, &signatureBufferLen) == SMCOM_OK )
+              {
+                  if(A71_EccVerifyWithKey(pubKey, pubKeyLen, shaData, shaDataLen, signatureBuffer, signatureBufferLen, &signResult) == SMCOM_OK)
+                  {
+                      if(signResult == 0x01) //Verify SUCCESFUL
+                      {
+                        return 0;
+                      }
+
+                      else  //Verify FAIL
+                      {
+                        return -1;
+                      }
+                  }
+              }
+          }
+      }
+  }
+
+  return -1;
+
+}
+
+int A71CHStoreTest()
+{
+    static U8 storeData[] = "RIDDLE & CODE";
+    U8 checkData[16] = {0};
+
+
+    if(A71_SetGpData(0, storeData, sizeof(storeData)) != SMCOM_OK)
+    {
+        return -1;
+
+    }
+
+    else
+    {
+      if(A71_GetGpData(0,checkData,sizeof(checkData)) != SMCOM_OK)
+      {
+          return -1;
+      }
+
+      else
+      {
+          if(!memcmp(storeData,checkData,sizeof(storeData)))
+          {
+            return 0; //test success
+          }
+
+          else
+          {
+            return -1; //test fail
+
+          }
+      }
+
+    }
+}
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
 
@@ -346,6 +530,7 @@ int spiTest()
 {
   const uint32_t num = 0xBEEFCAFE;
   uint8_t buffer[4];
+
   if(spiWriteStatus(num) != HAL_OK)
     {
       /* Transmission request Error */
