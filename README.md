@@ -48,7 +48,13 @@ I2C1 GPIO Configuration
   
   ### TESTS
   
-  Echo test over SPI for Nodemcu and store dummy data , read dummy data and compare test , generate key-pair, SHA256 a random string, sign the digest & verify the sign tests are present within the main source file. Red LED will blink in case any of those tests fail. Store data test is off by default to prevent overuse since the device has the capability to perform a certain number of EEPROM read / writes during it's lifetime. Add #define STORE_TEST to enable store test.
+  Echo test over SPI for Nodemcu and store dummy data , read dummy data and compare test , generate key-pair, SHA256 a random 
+
+string, sign the digest & verify the sign tests are present within the main source file. Red LED will blink in case any of 
+
+those tests fail. Store data test is off by default to prevent overuse since the device has the capability to perform a 
+
+certain number of EEPROM read / writes during it's lifetime. Add #define STORE_TEST to enable store test.
   
   #### TODO
   - Activate Wifi 
