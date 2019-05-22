@@ -191,6 +191,7 @@ int main(void)
       A71CHTestsPassed = true;
     }
 
+  #endif
   if(A71CHTestsPassed != true || NodeMcuTestsPassed != true)
   {
     HAL_GPIO_TogglePin(GPIOD,GPIO_PIN_14);
@@ -199,8 +200,6 @@ int main(void)
   {
     HAL_GPIO_WritePin(GPIOD,GPIO_PIN_14,GPIO_PIN_RESET);
   }
-
-  #endif
   #endif
     HAL_Delay(1000);
 
