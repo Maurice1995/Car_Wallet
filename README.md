@@ -20,6 +20,11 @@ SPI2 GPIO Configuration
     
     PE4      ------> SPI2_SS
     
+I2C1 GPIO Configuration    
+
+    PB6     ------> I2C1_SCL
+    
+    PB7     ------> I2C1_SDA 
     
 ## SCHEMATIC
 
@@ -36,7 +41,24 @@ SPI2 GPIO Configuration
    
  board.Works both way.CAN filter is enabled to accept message only from the paired nodes. 
     
+    
   
   STDID of the first board  = 0xBE
    
   STDID of the second board = 0xEF
+  
+  
+  ### TESTS
+  
+  Echo test over SPI for Nodemcu and store dummy data , read dummy data and compare test , generate key-pair, SHA256 a random 
+
+string, sign the digest & verify the sign tests are present within the main source file. Red LED will blink in case any of 
+
+those tests fail. Store data test is off by default to prevent overuse since the device has the capability to perform a 
+
+certain number of EEPROM read / writes during it's lifetime. Add #define STORE_TEST to enable store test.
+  
+  #### TODO
+  - Activate Wifi 
+  - Perform dummy https post
+  - Fix hanging nodemcu during boot when SS pin is high
