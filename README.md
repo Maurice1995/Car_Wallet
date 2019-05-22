@@ -41,10 +41,12 @@ I2C1 GPIO Configuration
    
  board.Works both way.CAN filter is enabled to accept message only from the paired nodes. 
     
+    
   
   STDID of the first board  = 0xBE
    
   STDID of the second board = 0xEF
+  
   
   ### TESTS
   
