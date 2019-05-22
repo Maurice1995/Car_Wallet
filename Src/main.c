@@ -40,7 +40,7 @@
 /* USER CODE BEGIN PD */
 #define BOARD1
 #ifdef BOARD1
-#define STORE_TEST
+//#define STORE_TEST
 #endif
 /* USER CODE END PD */
 
