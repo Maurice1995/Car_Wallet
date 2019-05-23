@@ -81,7 +81,7 @@ static void MX_SPI2_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
-void Can_Ayarla();
+void Can_Setup();
 int spiReadStatus(uint8_t *readBuffer);
 int spiWriteStatus(uint32_t status);
 int A71CHSignTest();
@@ -128,7 +128,7 @@ int main(void)
   MX_SPI2_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-  Can_Ayarla();
+  Can_Setup();
 
      if (HAL_CAN_Start(&hcan1) != HAL_OK)
       {
@@ -625,7 +625,7 @@ int spiReadStatus(uint8_t *readBuffer)
 }
 
 
-void Can_Ayarla(){
+void Can_Setup(){
 
 	sFilterConfig.FilterBank= 0;
 	sFilterConfig.FilterMode= CAN_FILTERMODE_IDMASK;
