@@ -58,25 +58,70 @@ Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_exti.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_spi.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c.c \
 Drivers/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_i2c_ex.c \
-libs/se_hostlib/common/smComSCI2C.c \
-libs/se_hostlib/platform/i2c_F407.c \
-libs/se_hostlib/platform/sm_printf.c \
-libs/se_hostlib/common/sci2c.c \
-libs/se_hostlib/common/smCom.c \
-libs/a71ch/ex/ex_ecc_nohc.c \
-libs/tst_a71ch_util.c \
-libs/tst_sm_util.c \
-libs/a71ch/src/a71ch_sst.c \
-libs/a71ch/src/a71ch_com.c \
-libs/a71ch/src/a71ch_crypto_derive.c \
-libs/a71ch/src/a71ch_crypto_ecc.c \
-libs/a71ch/src/a71ch_module.c \
-libs/se_hostlib/common/sm_apdu.c \
-libs/se_hostlib/common/scp.c \
-libs/dwt_delay/dwt_delay.c \
-libs/se_hostlib/common/sm_errors.c \
-libs/libCommon/hostCrypto/hcAsn.c \
-Src/system_stm32f4xx.c
+A71CH/se_hostlib/common/smComSCI2C.c \
+A71CH/se_hostlib/platform/i2c_F407.c \
+A71CH/se_hostlib/platform/sm_printf.c \
+A71CH/se_hostlib/common/sci2c.c \
+A71CH/se_hostlib/common/smCom.c \
+A71CH/a71ch/ex/ex_ecc_nohc.c \
+A71CH/tst_a71ch_util.c \
+A71CH/tst_sm_util.c \
+A71CH/a71ch/src/a71ch_sst.c \
+A71CH/a71ch/src/a71ch_com.c \
+A71CH/a71ch/src/a71ch_crypto_derive.c \
+A71CH/a71ch/src/a71ch_crypto_ecc.c \
+A71CH/a71ch/src/a71ch_module.c \
+A71CH/se_hostlib/common/sm_apdu.c \
+A71CH/se_hostlib/common/scp.c \
+A71CH/dwt_delay/dwt_delay.c \
+A71CH/se_hostlib/common/sm_errors.c \
+A71CH/libCommon/hostCrypto/hcAsn.c \
+Src/system_stm32f4xx.c \
+ethTxBuilder/contract.c \
+ethTxBuilder/rlp.c \
+ethTxBuilder/transaction.c \
+ethTxBuilder/libs/trezor-crypto/address.c  \
+ethTxBuilder/libs/trezor-crypto/base32.c \
+ethTxBuilder/libs/trezor-crypto/base58.c \
+ethTxBuilder/libs/trezor-crypto/bignum.c \
+ethTxBuilder/libs/trezor-crypto/bip32.c \
+ethTxBuilder/libs/trezor-crypto/bip39.c \
+ethTxBuilder/libs/trezor-crypto/blake256.c \
+ethTxBuilder/libs/trezor-crypto/blake2b.c \
+ethTxBuilder/libs/trezor-crypto/blake2s.c \
+ethTxBuilder/libs/trezor-crypto/cash_addr.c \
+ethTxBuilder/libs/trezor-crypto/curves.c \
+ethTxBuilder/libs/trezor-crypto/ecdsa.c \
+ethTxBuilder/libs/trezor-crypto/groestl.c \
+ethTxBuilder/libs/trezor-crypto/hasher.c \
+ethTxBuilder/libs/trezor-crypto/hmac.c \
+ethTxBuilder/libs/trezor-crypto/memzero.c \
+ethTxBuilder/libs/trezor-crypto/nem.c \
+ethTxBuilder/libs/trezor-crypto/nist256p1.c \
+ethTxBuilder/libs/trezor-crypto/pbkdf2.c \
+ethTxBuilder/libs/trezor-crypto/rand.c \
+ethTxBuilder/libs/trezor-crypto/rc4.c \
+ethTxBuilder/libs/trezor-crypto/rfc6979.c \
+ethTxBuilder/libs/trezor-crypto/ripemd160.c \
+ethTxBuilder/libs/trezor-crypto/script.c \
+ethTxBuilder/libs/trezor-crypto/secp256k1.c \
+ethTxBuilder/libs/trezor-crypto/segwit_addr.c \
+ethTxBuilder/libs/trezor-crypto/sha2.c \
+ethTxBuilder/libs/trezor-crypto/sha3.c \
+ethTxBuilder/libs/trezor-crypto/ed25519-donna/curve25519-donna-32bit.c \
+ethTxBuilder/libs/trezor-crypto/ed25519-donna/curve25519-donna-helpers.c \
+ethTxBuilder/libs/trezor-crypto/ed25519-donna/curve25519-donna-scalarmult-base.c \
+ethTxBuilder/libs/trezor-crypto/ed25519-donna/ed25519.c \
+ethTxBuilder/libs/trezor-crypto/ed25519-donna/ed25519-donna-32bit-tables.c \
+ethTxBuilder/libs/trezor-crypto/ed25519-donna/ed25519-donna-basepoint-table.c \
+ethTxBuilder/libs/trezor-crypto/ed25519-donna/ed25519-donna-impl-base.c \
+ethTxBuilder/libs/trezor-crypto/ed25519-donna/ed25519-keccak.c \
+ethTxBuilder/libs/trezor-crypto/ed25519-donna/ed25519-sha3.c \
+ethTxBuilder/libs/trezor-crypto/ed25519-donna/modm-donna-32bit.c \
+ethTxBuilder/libs/tiny-bignum-c/bn.c
+
+
+
 # ASM sources
 ASM_SOURCES =  \
 startup_stm32f407xx.s
@@ -132,11 +177,11 @@ C_DEFS =  \
 -DHOST_CRYPTO_NOT_SUPPORTED \
 -DHOST_CRYPTO_ERROR \
 -DHOST_CRYPTO_OK \
--DSECURE_CHANNEL_SUPPORTED=0
-
+-DSECURE_CHANNEL_SUPPORTED=0 \
+-DRAND_PLATFORM_INDEPENDENT
 
 # AS includes
-AS_INCLUDES = 
+AS_INCLUDES =
 
 # C includes
 C_INCLUDES =  \
@@ -145,15 +190,22 @@ C_INCLUDES =  \
 -IDrivers/STM32F4xx_HAL_Driver/Inc/Legacy \
 -IDrivers/CMSIS/Device/ST/STM32F4xx/Include \
 -IDrivers/CMSIS/Include \
--Ilibs/se_hostlib/common \
--Ilibs/se_hostlib/inc \
--Ilibs/se_hostlib/platform \
--Ilibs/a71ch/ex/ \
--Ilibs/a71ch/inc \
--Ilibs/api/inc \
--Ilibs \
--Ilibs/dwt_delay \
--Ilibs/libCommon/hostCrypto
+-IA71CH/se_hostlib/common \
+-IA71CH/se_hostlib/inc \
+-IA71CH/se_hostlib/platform \
+-IA71CH/a71ch/ex/ \
+-IA71CH/a71ch/inc \
+-IA71CH/api/inc \
+-IA71CH \
+-IA71CH/dwt_delay \
+-IA71CH/libCommon/hostCrypto \
+-IethTxBuilder/include \
+-IethTxBuilder/libs/tiny-bignum-c \
+-IethTxBuilder/trezor-crypto/ed25519_sign \
+-IethTxBuilder/libs/trezor-crypto
+
+
+
 
 
 # compile gcc flags
@@ -177,8 +229,8 @@ CFLAGS += -MMD -MP -MF"$(@:%.o=%.d)"
 LDSCRIPT = STM32F407VGTx_FLASH.ld
 
 # libraries
-LIBS = -lc -lm -lnosys 
-LIBDIR = 
+LIBS = -lc -lm -lnosys
+LIBDIR =
 LDFLAGS = $(MCU) -specs=nano.specs -T$(LDSCRIPT) $(LIBDIR) $(LIBS) -Wl,-Map=$(BUILD_DIR)/$(TARGET).map,--cref -Wl,--gc-sections
 
 # default action: build all

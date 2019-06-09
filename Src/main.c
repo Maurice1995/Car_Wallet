@@ -26,6 +26,7 @@
 #include "sci2c.h"
 #include "dwt_delay.h"
 #include "string.h"
+#include "transaction.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -38,7 +39,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define BOARD2
+#define BOARD3
 #ifdef BOARD1
 //#define STORE_TEST
 #endif
@@ -84,6 +85,7 @@ static void MX_I2C1_Init(void);
 void Can_Setup();
 int spiReadStatus(uint8_t *readBuffer);
 int spiWriteStatus(uint32_t status);
+int spiWriteData(uint8_t *data,uint8_t dataLen,uint8_t *header,uint8_t headerLen);
 int A71CHSignTest();
 int A71CHStoreTest();
 
@@ -152,9 +154,16 @@ int main(void)
     }
 
   #endif
+  uint8_t rlp_tx[512] = {0};
+  uint32_t tx_size;
+    ETH_TX tx;
 
+  const uint8_t data[30]= {"comay"};
+  const uint8_t header[2] = {"ID"};
   while (1)
   {
+  int rv = spiWriteData(data,sizeof(data),header,sizeof(header));
+  get_ethereum_tx(&tx, rlp_tx, &tx_size);
 
   #ifdef BOARD1
 
@@ -590,6 +599,46 @@ int spiWriteStatus(uint32_t status)
 
 
 }
+int spiWriteData(uint8_t *data,uint8_t dataLen,uint8_t *header,uint8_t headerLen)
+{
+    const uint8_t c[2] = {0x02,0x00};
+    uint8_t spiTxBuffer[32]={0};
+    memcpy(spiTxBuffer,header,headerLen);
+    memcpy(spiTxBuffer+headerLen,data,dataLen);
+    int rv = HAL_ERROR;
+
+    HAL_GPIO_WritePin(GPIOE,GPIO_PIN_4,GPIO_PIN_RESET);
+
+    rv = HAL_SPI_Transmit_IT(&hspi2,&c,2);
+
+    if (rv != HAL_OK)
+    {
+      return rv;
+    }
+    while(HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
+    {}
+
+    for(int i=0 ;i<32; i++)
+    {
+      rv = HAL_SPI_Transmit_IT(&hspi2,spiTxBuffer+i,1);
+
+      if (rv != HAL_OK)
+      {
+        return rv;
+      }
+
+      while(HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
+      {}
+
+
+    }
+    HAL_GPIO_WritePin(GPIOE,GPIO_PIN_4,GPIO_PIN_SET);
+
+    return HAL_OK;
+
+
+}
+
 int spiReadStatus(uint8_t *readBuffer)
 {
       uint8_t c = 0x04;
