@@ -23,7 +23,9 @@
 
 #include "rand.h"
 #include "a71ch_api.h"
-
+#include "smComSCI2C.h"
+#include "a71ch_ex.h"
+#include "sci2c.h"
 #ifndef RAND_PLATFORM_INDEPENDENT
 
 
@@ -57,7 +59,10 @@ uint32_t random32(void)
 uint32_t random32(void)
 {
 	uint32_t rnd = 0;
-	uint8_t rndLen = 32;
+	uint8_t rndLen = 4;
+	uint8_t Atr[64];
+   	uint16_t AtrLen = sizeof(Atr);
+	smComSCI2C_Open(RESUME_SCI2C, 0x00, Atr, &AtrLen);
 	A71_GetRandom(&rnd,rndLen);
 	return rnd;
 }

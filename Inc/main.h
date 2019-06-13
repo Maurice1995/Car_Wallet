@@ -53,6 +53,10 @@ extern "C" {
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
+void sm_sleep(uint32_t msec);
+
+void sm_usleep(uint32_t microsec);
+
 /* USER CODE BEGIN EFP */
 
 /* USER CODE END EFP */

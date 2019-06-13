@@ -64,7 +64,10 @@ void DWT_Delay(uint32_t us) // microseconds
     else
     {
         // Overflowed
-        while (DWT->CYCCNT > startTick || DWT->CYCCNT < targetTick)
-            ;
+         DWT->CYCCNT = 0;
+        startTick = DWT->CYCCNT;
+        targetTick = DWT->CYCCNT + us * (SystemCoreClock / 1000000);
+        while ( DWT->CYCCNT < targetTick);
+
     }
 }

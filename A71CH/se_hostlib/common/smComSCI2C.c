@@ -19,7 +19,7 @@
  *****************************************************************************/
 
 #include <assert.h>
-
+#include "main.h"
 #include "smComSCI2C.h"
 #include "sci2c.h"
 #include "i2c_a7.h"
@@ -27,6 +27,7 @@
 
 static U32 smComSCI2C_Transceive(apdu_t *pApdu);
 static U32 smComSCI2C_TransceiveRaw(U8 *pTx, U16 txLen, U8 *pRx, U32 *pRxLen);
+
 
 U16 smComSCI2C_Close(U8 mode)
 {
@@ -54,9 +55,7 @@ void smComSCI2C_Init(U8 mode, U8 seqCnt, U8 *SCI2Catr, U16 *SCI2CatrLen)
     }
     else if (mode == RESUME_SCI2C)
     {
-        sm_printf(DBGOUT, "Initializing SCI2C stack with Sequence Counter value: 0x%02X\r\n", seqCnt);
-        sci2c_SetSequenceCounter(seqCnt);
-        SCI2CatrLen = 0;
+
     }
     else
     {
@@ -91,8 +90,10 @@ U16 smComSCI2C_Open(U8 mode, U8 seqCnt, U8 *SCI2Catr, U16 *SCI2CatrLen)
 
     else if (mode == RESUME_SCI2C)
     {
-        sm_printf(DBGOUT, "Initializing SCI2C stack with Sequence Counter value: 0x%02X\r\n", seqCnt);
-        sci2c_SetSequenceCounter(seqCnt);
+        HAL_GPIO_WritePin(GPIOB,GPIO_PIN_7,GPIO_PIN_RESET);
+        HAL_Delay(1);
+        HAL_GPIO_WritePin(GPIOB,GPIO_PIN_7,GPIO_PIN_SET);
+
         SCI2CatrLen = 0;
     }
     else
