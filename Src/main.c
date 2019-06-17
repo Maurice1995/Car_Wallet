@@ -40,6 +40,9 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define BOARD3
+#define KEYSET (0x55)
+#define LOCK_SLOT ((uint16_t)0)
+#define KEY_SLOT ((uint16_t)2)
 #define CONNECTED  (0b00001000)
 
 #ifdef BOARD1
@@ -73,6 +76,10 @@ uint32_t              TxMailbox;
 bool A71CHTestsPassed = false;
 bool NodeMcuTestsPassed = false;
 bool A71CHSignTestPassed = false;
+uint8_t tempVIN[] = {0x86,0xae ,0x28 ,0x43 ,0x70 ,0xe0 ,0x7b ,0xe9 ,0x2d ,0xa1 ,0xa3 ,0xb3 ,0x41 ,0x5a ,0x6f ,0x2f
+,0x41 ,0x7c ,0x3c ,0x68 ,0xdb ,0x10 ,0x0b ,0xb2 ,0xf3 ,0x87 ,0x29 ,0xab ,0x21 ,0x3f ,0x7b ,0x29
+,0xee ,0x25 ,0x0b ,0x0b ,0xaa ,0x25 ,0x6f ,0x7b ,0x84 ,0x44 ,0xf2 ,0x6c ,0xea ,0x1c ,0xda ,0xa8
+,0xc4 ,0x1c ,0x82 ,0x44 ,0x7c ,0x5a ,0x80 ,0x86 ,0xa6 ,0x70 ,0x60 ,0x9e ,0xca ,0xfb ,0xab ,0xd5 };
 
 uint8_t rlp_tx[512] = {0};
 uint32_t tx_size;
@@ -94,11 +101,12 @@ static void MX_I2C1_Init(void);
 void Can_Setup();
 int spiReadStatus(uint8_t *readBuffer);
 int spiWriteStatus(uint32_t status);
-int spiWrite(uint8_t *data,uint8_t dataLen,uint8_t *header,uint8_t headerLen);
+int spiWrite(uint8_t *data,uint16_t dataLen,uint8_t *header,uint8_t headerLen);
 int spiWriteData(uint8_t* data);
 int A71CHSignTest();
 int A71CHStoreTest();
 int connectWifi();
+
 /* USER CODE END PFP */
 
 void sm_sleep(uint32_t msec)
@@ -162,20 +170,24 @@ int main(void)
       A71CHTestsPassed = false;
     }
 
+
+  generateIdentity(); // Generates a priv key if it is not already set, it locks the first the byte of eeprom memory of A71CH after saving to its memory. After calling this function , call A71_GetGpData(KEY_SLOT,pKey,pKeyLen) to get the prik key stored
+
+
   uint32_t rnd = 0;
   uint8_t rndLen = 4;
+  const uint8_t testTx[] = {"0xf88d128504a817c800830186a094983530eb2c4ab3694f66c537bb8c83af80a7248b80a418935e80000000000000000000000000000000000000000000000000000000000005468e843ca380ffa09f973654a0fa726ab1ae16ff9fc971082627a954554df84b8bf4c3b017bae8b1a06732049603e0637274dd72c6e30cc060f77f04220720ba650e7fe7ea4e8214f2"};
+
   connectWifi();
   //const uint8_t data[128]= {"comay123456789ciko123456789raca123456789conki123456789"};
 
   while (1)
   {
-
+    spiWrite(testTx,sizeof(testTx),header[2],strlen(header[2]));
+    HAL_Delay(2000);
     // init_tx(&tx);
     // get_ethereum_tx(&tx, rlp_tx, &tx_size);
-    uint8_t rndLen = 4;
-    uint32_t rnd = 0;
-
-	int rsp = A71_GetRandom(&rnd,rndLen);
+	  int rsp = A71_GetRandom(&rnd,rndLen);
   }
   /* USER CODE END 3 */
 }
@@ -379,6 +391,43 @@ static void MX_GPIO_Init(void)
   HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
 }
+
+void generateIdentity()
+{
+  int rsp = ERR_COMM_ERROR;
+  uint8_t lock[2] = {0};
+  uint8_t keyIsSet[2] = {0x55,0x66};
+  uint8_t pKey[32]={0};
+  uint16_t pKeyLen = sizeof(pKey);
+  rsp = A71_GetGpData(LOCK_SLOT,lock,sizeof(lock));
+  if(rsp != SW_OK)
+    return -1;
+  if(memcmp(lock,keyIsSet,2) != 0)
+  {
+    uint8_t rnd[64]= {0};
+    uint8_t rndLen = 64;
+    rsp = A71_GetRandom(&rnd,rndLen);
+    if(rsp != SW_OK)
+     return -1;
+    uint8_t hash[64]={0};
+    for(int i=0 ; i<64 ; i++)
+    {
+      hash[i]=rnd[i]&tempVIN[i];
+    }
+    rsp = A71_GetSha256(hash,sizeof(hash),pKey,&pKeyLen);
+    if(rsp != SW_OK)
+      return -1;
+    rsp = A71_SetGpData(KEY_SLOT,pKey,pKeyLen);
+    if(rsp != SW_OK)
+      return -1;
+    rsp = A71_SetGpData(LOCK_SLOT,&keyIsSet,sizeof(keyIsSet));
+    if(rsp != SW_OK)
+      return -1;
+    memset(pKey,0,pKeyLen);
+  }
+
+}
+
 int connectWifi()
 {
     int rv = HAL_ERROR;
@@ -411,7 +460,7 @@ int connectWifi()
       {
         return rv;
       }
-      HAL_Delay(100);
+      HAL_Delay(500);
     }
 
 }
@@ -598,15 +647,17 @@ int spiWriteStatus(uint32_t status)
 
 
 }
-int spiWrite(uint8_t *data,uint8_t dataLen,uint8_t *header,uint8_t headerLen)
+int spiWrite(uint8_t *data,uint16_t dataLen,uint8_t *header,uint8_t headerLen)
 {
     uint8_t spiTxBuffer[32]={0};
-    spiTxBuffer[0] = dataLen + headerLen ;
+    uint16_t messageLength = dataLen + headerLen;
+    spiTxBuffer[0] = (messageLength) >> 8;
+    spiTxBuffer[1] = (messageLength);
     int rv = HAL_ERROR;
-    if(spiTxBuffer[0] < 32)
+    if(messageLength < 32)
     {
-      memcpy(spiTxBuffer+1,header,headerLen);
-      memcpy(spiTxBuffer+headerLen+1,data,dataLen);
+      memcpy(spiTxBuffer+2,header,headerLen);
+      memcpy(spiTxBuffer+headerLen+2,data,dataLen);
       rv = spiWriteData(spiTxBuffer);
       if (rv != HAL_OK)
       {
@@ -615,18 +666,19 @@ int spiWrite(uint8_t *data,uint8_t dataLen,uint8_t *header,uint8_t headerLen)
     }
     else
     {
-      memcpy(spiTxBuffer+1,header,headerLen);
-      memcpy(spiTxBuffer+headerLen+1,data,32-headerLen-1);
+      memcpy(spiTxBuffer+2,header,headerLen);
+      memcpy(spiTxBuffer+headerLen+2,data,32-headerLen-2);
       rv = spiWriteData(spiTxBuffer);
       if (rv != HAL_OK)
       {
         return rv;
       }
-      dataLen = dataLen - (32 -headerLen -1);
-      data = data + (32 -headerLen -1);
+      dataLen = dataLen - 28;
+      data = data + (32 -headerLen -2);
       while(dataLen > 0)
       {
-        uint8_t spiTxBuffer[32]={0};
+        HAL_Delay(1);
+        memset(spiTxBuffer,0,32);
         if(dataLen >= 32)
         {
           memcpy(spiTxBuffer,data,32);
