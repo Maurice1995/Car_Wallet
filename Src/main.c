@@ -44,7 +44,9 @@
 #define LOCK_SLOT ((uint16_t)0)
 #define KEY_SLOT ((uint16_t)2)
 #define CONNECTED  (0b00001000)
-
+#define TX_BUSY    (0b00010000)
+#define SSID_READY (0b00000001)
+#define PSWD_READY (0b00000010)
 #ifdef BOARD1
 //#define STORE_TEST
 #endif
@@ -106,6 +108,8 @@ int spiWriteData(uint8_t* data);
 int A71CHSignTest();
 int A71CHStoreTest();
 int connectWifi();
+int sendTx(uint8_t* tx, uint16_t txLen);
+void generateIdentity();
 
 /* USER CODE END PFP */
 
@@ -183,8 +187,8 @@ int main(void)
 
   while (1)
   {
-    spiWrite(testTx,sizeof(testTx),header[2],strlen(header[2]));
-    HAL_Delay(2000);
+    sendTx(testTx,sizeof(testTx));
+    HAL_Delay(1000);
     // init_tx(&tx);
     // get_ethereum_tx(&tx, rlp_tx, &tx_size);
 	  int rsp = A71_GetRandom(&rnd,rndLen);
@@ -387,7 +391,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 1);
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 1, 1);
   HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
 }
@@ -427,7 +431,29 @@ void generateIdentity()
   }
 
 }
-
+int sendTx(uint8_t* tx, uint16_t txLen)
+{
+  int rv = HAL_ERROR;
+  rv = spiReadStatus(status);
+  if (rv != HAL_OK)
+  {
+    return rv;
+  }
+  HAL_Delay(100);
+  if((status[0] & TX_BUSY))
+  {
+    return 0; // processing the previous TX
+  }
+  else if(!(status[0] & CONNECTED))
+  {
+    connectWifi(); //wifi connection dropped , reconnect
+  }
+  rv = spiWrite(tx,txLen,header[2],strlen(header[2]));
+  if (rv != HAL_OK)
+  {
+    return rv;
+  }
+}
 int connectWifi()
 {
     int rv = HAL_ERROR;
@@ -452,15 +478,36 @@ int connectWifi()
     {
       return rv;
     }
+
     HAL_Delay(100);
-    while(!(status[0] & CONNECTED) )
+    while(!(status[0] & CONNECTED))
     {
       rv = spiReadStatus(status);
       if (rv != HAL_OK)
       {
         return rv;
       }
-      HAL_Delay(500);
+      HAL_Delay(100);
+
+      if(!(status[0] & SSID_READY))
+      {
+        rv = spiWrite(SSID,strlen(SSID),header[0],strlen(header[0]));
+        if (rv != HAL_OK)
+        {
+          return rv;
+        }
+      }
+
+      HAL_Delay(100);
+      if(!(status[0] & PSWD_READY))
+      {
+        rv = spiWrite(PSWD,strlen(PSWD),header[1],strlen(header[1]));
+        if (rv != HAL_OK)
+        {
+          return rv;
+        }
+      }
+      HAL_Delay(100);
     }
 
 }
