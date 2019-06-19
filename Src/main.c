@@ -27,6 +27,7 @@
 #include "dwt_delay.h"
 #include "string.h"
 #include "transaction.h"
+#include "stm32f4xx_hal_tim.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -47,6 +48,8 @@
 #define TX_BUSY    (0b00010000)
 #define SSID_READY (0b00000001)
 #define PSWD_READY (0b00000010)
+#define BOARD1
+
 #ifdef BOARD1
 //#define STORE_TEST
 #endif
@@ -70,6 +73,7 @@ SPI_HandleTypeDef hspi2;
 CAN_FilterTypeDef sFilterConfig;
 CAN_TxHeaderTypeDef TxMessage;
 CAN_RxHeaderTypeDef RxMessage;
+TIM_HandleTypeDef htim2;
 
 uint8_t               TxData[8];
 uint8_t               RxData[8];
@@ -86,9 +90,9 @@ uint8_t tempVIN[] = {0x86,0xae ,0x28 ,0x43 ,0x70 ,0xe0 ,0x7b ,0xe9 ,0x2d ,0xa1 ,
 uint8_t rlp_tx[512] = {0};
 uint32_t tx_size;
 ETH_TX tx;
-const uint8_t SSID[128]= {"comay"};
+const uint8_t SSID[128]= {"R3C"};
 const uint8_t header[3][3] = {"ID","PW","TX"};
-const uint8_t PSWD[128]= {"111comay989"};
+const uint8_t PSWD[128]= {"code!riddle&"};
 uint8_t status[4];
 /* USER CODE END PV */
 
@@ -110,6 +114,9 @@ int A71CHStoreTest();
 int connectWifi();
 int sendTx(uint8_t* tx, uint16_t txLen);
 void generateIdentity();
+
+static int processing_time = 0;
+static volatile int start_processing = false;
 
 /* USER CODE END PFP */
 
@@ -134,7 +141,7 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-
+  InitializeTimer();
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
@@ -463,7 +470,7 @@ int connectWifi()
       return rv;
     }
     HAL_Delay(100);
-    if(status[0] & CONNECTED)
+    if(status[0] & CONNECTED !=0)
     {
       return 0; // Already connected to wifi
     }
@@ -594,20 +601,20 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 
 	HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &RxMessage, RxData);
 
-
-		        if(((RxData[0]<<8 | RxData[1]) != 0xCAFE))
-		        {
-		          /* Rx message Error */
-		        	GPIOD->ODR = 0x00 << 12;
-
-		        }
-		        else
-		        {
-		        	GPIOD->ODR = RxData[2] << 12;
-
-		        }
-
-
+  if (RxMessage.StdId == 0x098)
+  {
+    HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
+  }
+  else if (RxMessage.StdId == 0x309)
+  {
+    /* Rx message Error */
+    HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
+  }
+  else if (RxMessage.StdId == 0x3EB)
+  {
+    /* Rx message Error */
+    HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_14);
+  }
 }
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
@@ -820,30 +827,81 @@ void Can_Setup(){
 	sFilterConfig.FilterBank= 0;
 	sFilterConfig.FilterMode= CAN_FILTERMODE_IDMASK;
 	sFilterConfig.FilterScale= CAN_FILTERSCALE_32BIT;
-  #ifdef BOARD1
-	sFilterConfig.FilterIdHigh= 0xEF<<5;  //On second node change this to 0xBE
-  #elif defined(BOARD2)
-  sFilterConfig.FilterIdHigh= 0xBE<<5;
-  #endif
+  sFilterConfig.FilterIdHigh= 0x0008<<5;
 	sFilterConfig.FilterIdLow= 0x0000;
-	sFilterConfig.FilterMaskIdHigh= 0xFF<<5;  // All four bytes must match to accept message
+	sFilterConfig.FilterMaskIdHigh= 0x40C<<5;  // All four bytes must match to accept message
 	sFilterConfig.FilterMaskIdLow= 0x0000;
 	sFilterConfig.FilterFIFOAssignment= CAN_RX_FIFO0;
 	sFilterConfig.FilterActivation= ENABLE;
 	sFilterConfig.SlaveStartFilterBank = 14;
 
 	HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig);
-  #ifdef BOARD1
-	TxMessage.StdId= 0xBE;  // On second node change this ID to 0xEF
-  #elif defined(BOARD2)
-  TxMessage.StdId= 0xEF;
-  #endif
+  TxMessage.StdId= 0x3C8;     // OUR STDID
 	TxMessage.RTR= CAN_RTR_DATA;
 	TxMessage.IDE= CAN_ID_STD;
 	TxMessage.DLC= 3;
 	TxMessage.TransmitGlobalTime = DISABLE;
 
 }
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if (htim->Instance == TIM2)
+  {
+    processing_time++;
+
+    if (processing_time >= 3)
+    {
+      processing_time = 0;
+      start_processing = true;
+    }
+  }
+}
+
+
+void InitializeTimer()
+{
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 479999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  __HAL_TIM_CLEAR_FLAG(&htim2, TIM_IT_UPDATE);
+
+  if (HAL_TIM_Base_Start_IT(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+}
+
+
 /* USER CODE END 4 */
 
 /**
