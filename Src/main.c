@@ -44,8 +44,8 @@
 #define KEYSET (0x55)
 #define LOCK_SLOT ((uint16_t)0)
 #define KEY_SLOT ((uint16_t)2)
-#define CONNECTED  (0b00001000)
-#define TX_BUSY    (0b00010000)
+#define CONNECTED (0b00001000)
+#define TX_BUSY (0b00010000)
 #define SSID_READY (0b00000001)
 #define PSWD_READY (0b00000010)
 #define BOARD1
@@ -75,24 +75,21 @@ CAN_TxHeaderTypeDef TxMessage;
 CAN_RxHeaderTypeDef RxMessage;
 TIM_HandleTypeDef htim2;
 
-uint8_t               TxData[8];
-uint8_t               RxData[8];
-uint32_t              TxMailbox;
+uint8_t TxData[8];
+uint8_t RxData[8];
+uint32_t TxMailbox;
 
 bool A71CHTestsPassed = false;
 bool NodeMcuTestsPassed = false;
 bool A71CHSignTestPassed = false;
-uint8_t tempVIN[] = {0x86,0xae ,0x28 ,0x43 ,0x70 ,0xe0 ,0x7b ,0xe9 ,0x2d ,0xa1 ,0xa3 ,0xb3 ,0x41 ,0x5a ,0x6f ,0x2f
-,0x41 ,0x7c ,0x3c ,0x68 ,0xdb ,0x10 ,0x0b ,0xb2 ,0xf3 ,0x87 ,0x29 ,0xab ,0x21 ,0x3f ,0x7b ,0x29
-,0xee ,0x25 ,0x0b ,0x0b ,0xaa ,0x25 ,0x6f ,0x7b ,0x84 ,0x44 ,0xf2 ,0x6c ,0xea ,0x1c ,0xda ,0xa8
-,0xc4 ,0x1c ,0x82 ,0x44 ,0x7c ,0x5a ,0x80 ,0x86 ,0xa6 ,0x70 ,0x60 ,0x9e ,0xca ,0xfb ,0xab ,0xd5 };
+uint8_t tempVIN[] = {0x86, 0xae, 0x28, 0x43, 0x70, 0xe0, 0x7b, 0xe9, 0x2d, 0xa1, 0xa3, 0xb3, 0x41, 0x5a, 0x6f, 0x2f, 0x41, 0x7c, 0x3c, 0x68, 0xdb, 0x10, 0x0b, 0xb2, 0xf3, 0x87, 0x29, 0xab, 0x21, 0x3f, 0x7b, 0x29, 0xee, 0x25, 0x0b, 0x0b, 0xaa, 0x25, 0x6f, 0x7b, 0x84, 0x44, 0xf2, 0x6c, 0xea, 0x1c, 0xda, 0xa8, 0xc4, 0x1c, 0x82, 0x44, 0x7c, 0x5a, 0x80, 0x86, 0xa6, 0x70, 0x60, 0x9e, 0xca, 0xfb, 0xab, 0xd5};
 
 uint8_t rlp_tx[512] = {0};
 uint32_t tx_size;
 ETH_TX tx;
-const uint8_t SSID[128]= {"R3C"};
-const uint8_t header[3][3] = {"ID","PW","TX"};
-const uint8_t PSWD[128]= {"code!riddle&"};
+const uint8_t SSID[128] = {"R3C"};
+const uint8_t header[3][3] = {"ID", "PW", "TX"};
+const uint8_t PSWD[128] = {"code!riddle&"};
 uint8_t status[4];
 /* USER CODE END PV */
 
@@ -107,27 +104,44 @@ static void MX_I2C1_Init(void);
 void Can_Setup();
 int spiReadStatus(uint8_t *readBuffer);
 int spiWriteStatus(uint32_t status);
-int spiWrite(uint8_t *data,uint16_t dataLen,uint8_t *header,uint8_t headerLen);
-int spiWriteData(uint8_t* data);
+int spiWrite(uint8_t *data, uint16_t dataLen, uint8_t *header, uint8_t headerLen);
+int spiWriteData(uint8_t *data);
 int A71CHSignTest();
 int A71CHStoreTest();
 int connectWifi();
-int sendTx(uint8_t* tx, uint16_t txLen);
+int sendTx(uint8_t *tx, uint16_t txLen);
 void generateIdentity();
 
 static int processing_time = 0;
 static volatile int start_processing = false;
+static volatile bool isSynced = false;
+
+static struct measurements_t
+{
+  uint8_t receivedFlags;
+  int velocity;
+  int gps;
+  int odo;
+} g_measurements = {0};
+
+enum flags_e
+{
+  RECEIVED_VELOCITY = 0x01,
+  RECEIVED_GPS = 0x02,
+  RECEIVED_ODO = 0x04,
+  RECEIVED_ALL = 0x07
+};
 
 /* USER CODE END PFP */
 
 void sm_sleep(uint32_t msec)
 {
-    HAL_Delay(msec);
+  HAL_Delay(msec);
 }
 void sm_usleep(uint32_t microsec)
 {
-    // HAL_Delay(microsec);
-    DWT_Delay(microsec);
+  // HAL_Delay(microsec);
+  DWT_Delay(microsec);
 }
 bool flag = false;
 int main(void)
@@ -136,12 +150,12 @@ int main(void)
 
   /* USER CODE END 1 */
 
-
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
   InitializeTimer();
+
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
@@ -161,29 +175,26 @@ int main(void)
   /* USER CODE BEGIN 2 */
   Can_Setup();
 
-     if (HAL_CAN_Start(&hcan1) != HAL_OK)
-      {
-        Error_Handler();
-      }
+  if (HAL_CAN_Start(&hcan1) != HAL_OK)
+  {
+    Error_Handler();
+  }
 
-     TxData[0] = 0xCA;
-     TxData[1] = 0xFE;
+  TxData[0] = 0xCA;
+  TxData[1] = 0xFE;
 
   HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
+  uint8_t Atr[64];
+  uint16_t AtrLen = sizeof(Atr);
+  int sw = smComSCI2C_Open(ESTABLISH_SCI2C, 0x00, Atr, &AtrLen);
 
-   uint8_t Atr[64];
-   uint16_t AtrLen = sizeof(Atr);
-   int sw = smComSCI2C_Open(ESTABLISH_SCI2C, 0x00, Atr, &AtrLen);
-
-    if (sw != SW_OK)
-    {
-      A71CHTestsPassed = false;
-    }
-
+  if (sw != SW_OK)
+  {
+    A71CHTestsPassed = false;
+  }
 
   generateIdentity(); // Generates a priv key if it is not already set, it locks the first the byte of eeprom memory of A71CH after saving to its memory. After calling this function , call A71_GetGpData(KEY_SLOT,pKey,pKeyLen) to get the prik key stored
-
 
   uint32_t rnd = 0;
   uint8_t rndLen = 4;
@@ -194,11 +205,42 @@ int main(void)
 
   while (1)
   {
-    sendTx(testTx,sizeof(testTx));
-    HAL_Delay(1000);
-    // init_tx(&tx);
-    // get_ethereum_tx(&tx, rlp_tx, &tx_size);
-	  int rsp = A71_GetRandom(&rnd,rndLen);
+    if (start_processing)
+    {
+      start_processing = false;
+
+      /* Important function 2 */
+      uint32_t prim;
+
+      /* Do some stuff here which can be interrupted */
+
+      /* Read PRIMASK register, check interrupt status before you disable them */
+      /* Returns 0 if they are enabled, or non-zero if disabled */
+      prim = __get_PRIMASK();
+
+      /* Disable interrupts */
+      __disable_irq();
+      if (isSynced)
+      {
+        isSynced = false;
+
+        int gps = g_measurements.gps;
+        int odo = g_measurements.odo;
+        int vel = g_measurements.velocity;
+        
+        // construct testTx from GPS & ODO & VEL
+
+        /* Do some stuff here which can not be interrupted */
+        sendTx(testTx, sizeof(testTx));
+        int rsp = A71_GetRandom(&rnd, rndLen);
+      }
+
+      /* Enable interrupts back only if they were enabled before we disable it here in this function */
+      if (!prim)
+      {
+        __enable_irq();
+      }
+    }
   }
   /* USER CODE END 3 */
 }
@@ -232,8 +274,7 @@ void SystemClock_Config(void)
   }
   /** Initializes the CPU, AHB and APB busses clocks 
   */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
@@ -279,7 +320,6 @@ static void MX_CAN1_Init(void)
   /* USER CODE BEGIN CAN1_Init 2 */
 
   /* USER CODE END CAN1_Init 2 */
-
 }
 
 /**
@@ -313,7 +353,6 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
-
 }
 
 /**
@@ -351,7 +390,6 @@ static void MX_SPI2_Init(void)
   /* USER CODE BEGIN SPI2_Init 2 */
 
   /* USER CODE END SPI2_Init 2 */
-
 }
 
 /**
@@ -375,7 +413,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : PE4 */
   GPIO_InitStruct.Pin = GPIO_PIN_4;
@@ -391,7 +429,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PD12 PD13 PD14 PD15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15;
+  GPIO_InitStruct.Pin = GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -400,45 +438,43 @@ static void MX_GPIO_Init(void)
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI0_IRQn, 1, 1);
   HAL_NVIC_EnableIRQ(EXTI0_IRQn);
-
 }
 
 void generateIdentity()
 {
   int rsp = ERR_COMM_ERROR;
   uint8_t lock[2] = {0};
-  uint8_t keyIsSet[2] = {0x55,0x66};
-  uint8_t pKey[32]={0};
+  uint8_t keyIsSet[2] = {0x55, 0x66};
+  uint8_t pKey[32] = {0};
   uint16_t pKeyLen = sizeof(pKey);
-  rsp = A71_GetGpData(LOCK_SLOT,lock,sizeof(lock));
-  if(rsp != SW_OK)
+  rsp = A71_GetGpData(LOCK_SLOT, lock, sizeof(lock));
+  if (rsp != SW_OK)
     return -1;
-  if(memcmp(lock,keyIsSet,2) != 0)
+  if (memcmp(lock, keyIsSet, 2) != 0)
   {
-    uint8_t rnd[64]= {0};
+    uint8_t rnd[64] = {0};
     uint8_t rndLen = 64;
-    rsp = A71_GetRandom(&rnd,rndLen);
-    if(rsp != SW_OK)
-     return -1;
-    uint8_t hash[64]={0};
-    for(int i=0 ; i<64 ; i++)
+    rsp = A71_GetRandom(&rnd, rndLen);
+    if (rsp != SW_OK)
+      return -1;
+    uint8_t hash[64] = {0};
+    for (int i = 0; i < 64; i++)
     {
-      hash[i]=rnd[i]&tempVIN[i];
+      hash[i] = rnd[i] & tempVIN[i];
     }
-    rsp = A71_GetSha256(hash,sizeof(hash),pKey,&pKeyLen);
-    if(rsp != SW_OK)
+    rsp = A71_GetSha256(hash, sizeof(hash), pKey, &pKeyLen);
+    if (rsp != SW_OK)
       return -1;
-    rsp = A71_SetGpData(KEY_SLOT,pKey,pKeyLen);
-    if(rsp != SW_OK)
+    rsp = A71_SetGpData(KEY_SLOT, pKey, pKeyLen);
+    if (rsp != SW_OK)
       return -1;
-    rsp = A71_SetGpData(LOCK_SLOT,&keyIsSet,sizeof(keyIsSet));
-    if(rsp != SW_OK)
+    rsp = A71_SetGpData(LOCK_SLOT, &keyIsSet, sizeof(keyIsSet));
+    if (rsp != SW_OK)
       return -1;
-    memset(pKey,0,pKeyLen);
+    memset(pKey, 0, pKeyLen);
   }
-
 }
-int sendTx(uint8_t* tx, uint16_t txLen)
+int sendTx(uint8_t *tx, uint16_t txLen)
 {
   int rv = HAL_ERROR;
   rv = spiReadStatus(status);
@@ -447,15 +483,15 @@ int sendTx(uint8_t* tx, uint16_t txLen)
     return rv;
   }
   HAL_Delay(100);
-  if((status[0] & TX_BUSY))
+  if ((status[0] & TX_BUSY))
   {
     return 0; // processing the previous TX
   }
-  else if(!(status[0] & CONNECTED))
+  else if (!(status[0] & CONNECTED))
   {
     connectWifi(); //wifi connection dropped , reconnect
   }
-  rv = spiWrite(tx,txLen,header[2],strlen(header[2]));
+  rv = spiWrite(tx, txLen, header[2], strlen(header[2]));
   if (rv != HAL_OK)
   {
     return rv;
@@ -463,60 +499,59 @@ int sendTx(uint8_t* tx, uint16_t txLen)
 }
 int connectWifi()
 {
-    int rv = HAL_ERROR;
+  int rv = HAL_ERROR;
+  rv = spiReadStatus(status);
+  if (rv != HAL_OK)
+  {
+    return rv;
+  }
+  HAL_Delay(100);
+  if (status[0] & CONNECTED != 0)
+  {
+    return 0; // Already connected to wifi
+  }
+  rv = spiWrite(SSID, strlen(SSID), header[0], strlen(header[0]));
+  if (rv != HAL_OK)
+  {
+    return rv;
+  }
+  HAL_Delay(100);
+  rv = spiWrite(PSWD, strlen(PSWD), header[1], strlen(header[1]));
+  if (rv != HAL_OK)
+  {
+    return rv;
+  }
+
+  HAL_Delay(100);
+  while (!(status[0] & CONNECTED))
+  {
     rv = spiReadStatus(status);
     if (rv != HAL_OK)
     {
       return rv;
     }
     HAL_Delay(100);
-    if(status[0] & CONNECTED !=0)
-    {
-      return 0; // Already connected to wifi
-    }
-    rv = spiWrite(SSID,strlen(SSID),header[0],strlen(header[0]));
-    if (rv != HAL_OK)
-    {
-      return rv;
-    }
-    HAL_Delay(100);
-    rv = spiWrite(PSWD,strlen(PSWD),header[1],strlen(header[1]));
-    if (rv != HAL_OK)
-    {
-      return rv;
-    }
 
-    HAL_Delay(100);
-    while(!(status[0] & CONNECTED))
+    if (!(status[0] & SSID_READY))
     {
-      rv = spiReadStatus(status);
+      rv = spiWrite(SSID, strlen(SSID), header[0], strlen(header[0]));
       if (rv != HAL_OK)
       {
         return rv;
       }
-      HAL_Delay(100);
-
-      if(!(status[0] & SSID_READY))
-      {
-        rv = spiWrite(SSID,strlen(SSID),header[0],strlen(header[0]));
-        if (rv != HAL_OK)
-        {
-          return rv;
-        }
-      }
-
-      HAL_Delay(100);
-      if(!(status[0] & PSWD_READY))
-      {
-        rv = spiWrite(PSWD,strlen(PSWD),header[1],strlen(header[1]));
-        if (rv != HAL_OK)
-        {
-          return rv;
-        }
-      }
-      HAL_Delay(100);
     }
 
+    HAL_Delay(100);
+    if (!(status[0] & PSWD_READY))
+    {
+      rv = spiWrite(PSWD, strlen(PSWD), header[1], strlen(header[1]));
+      if (rv != HAL_OK)
+      {
+        return rv;
+      }
+    }
+    HAL_Delay(100);
+  }
 }
 int A71CHSignTest()
 {
@@ -531,317 +566,319 @@ int A71CHSignTest()
   U8 pubKey[72] = {0};
   U16 pubKeyLen = sizeof(pubKey);
 
-  if ( A71_GenerateEccKeyPair(0) == SMCOM_OK)
+  if (A71_GenerateEccKeyPair(0) == SMCOM_OK)
   {
-      if ( A71_GetPublicKeyEccKeyPair(0, pubKey, &pubKeyLen) == SMCOM_OK)
+    if (A71_GetPublicKeyEccKeyPair(0, pubKey, &pubKeyLen) == SMCOM_OK)
+    {
+      if (A71_GetSha256(storeData, sizeof(storeData), shaData, &shaDataLen) == SMCOM_OK)
       {
-          if(A71_GetSha256(storeData, sizeof(storeData), shaData, &shaDataLen) == SMCOM_OK)
+        if (A71_EccSign(0, shaData, shaDataLen, signatureBuffer, &signatureBufferLen) == SMCOM_OK)
+        {
+          if (A71_EccVerifyWithKey(pubKey, pubKeyLen, shaData, shaDataLen, signatureBuffer, signatureBufferLen, &signResult) == SMCOM_OK)
           {
-              if( A71_EccSign( 0, shaData, shaDataLen, signatureBuffer, &signatureBufferLen) == SMCOM_OK )
-              {
-                  if(A71_EccVerifyWithKey(pubKey, pubKeyLen, shaData, shaDataLen, signatureBuffer, signatureBufferLen, &signResult) == SMCOM_OK)
-                  {
-                      if(signResult == 0x01) //Verify SUCCESFUL
-                      {
-                        return 0;
-                      }
+            if (signResult == 0x01) //Verify SUCCESFUL
+            {
+              return 0;
+            }
 
-                      else  //Verify FAIL
-                      {
-                        return -1;
-                      }
-                  }
-              }
+            else //Verify FAIL
+            {
+              return -1;
+            }
           }
+        }
       }
+    }
   }
 
   return -1;
-
 }
 
 int A71CHStoreTest()
 {
-    static U8 storeData[] = "RIDDLE & CODE";
-    U8 checkData[16] = {0};
+  static U8 storeData[] = "RIDDLE & CODE";
+  U8 checkData[16] = {0};
 
+  if (A71_SetGpData(0, storeData, sizeof(storeData)) != SMCOM_OK)
+  {
+    return -1;
+  }
 
-    if(A71_SetGpData(0, storeData, sizeof(storeData)) != SMCOM_OK)
+  else
+  {
+    if (A71_GetGpData(0, checkData, sizeof(checkData)) != SMCOM_OK)
     {
-        return -1;
-
+      return -1;
     }
 
     else
     {
-      if(A71_GetGpData(0,checkData,sizeof(checkData)) != SMCOM_OK)
+      if (!memcmp(storeData, checkData, sizeof(storeData)))
       {
-          return -1;
+        return 0; //test success
       }
 
       else
       {
-          if(!memcmp(storeData,checkData,sizeof(storeData)))
-          {
-            return 0; //test success
-          }
-
-          else
-          {
-            return -1; //test fail
-
-          }
+        return -1; //test fail
       }
-
     }
+  }
 }
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
 
-
-	HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &RxMessage, RxData);
+  HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &RxMessage, RxData);
 
   if (RxMessage.StdId == 0x098)
   {
+    g_measurements.velocity = RxData[0];
+    g_measurements.receivedFlags |= RECEIVED_VELOCITY;
     HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
   }
   else if (RxMessage.StdId == 0x309)
   {
     /* Rx message Error */
+    g_measurements.odo = RxData[0];
+    g_measurements.receivedFlags |= RECEIVED_ODO;
     HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
   }
   else if (RxMessage.StdId == 0x3EB)
   {
     /* Rx message Error */
+    g_measurements.gps = RxData[0];
+    g_measurements.receivedFlags |= RECEIVED_GPS;
     HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_14);
+  }
+
+  if (g_measurements.receivedFlags == RECEIVED_ALL)
+  {
+    isSynced = true;
+    g_measurements.receivedFlags = 0;
   }
 }
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   static uint8_t ledNum;
   flag = !flag;
-	if (GPIO_Pin == GPIO_PIN_0)
-	{
-		/* Request transmission */
+  if (GPIO_Pin == GPIO_PIN_0)
+  {
+    /* Request transmission */
     TxData[2] = ++ledNum;
 
-    if(HAL_CAN_AddTxMessage(&hcan1, &TxMessage, TxData, &TxMailbox) != HAL_OK)
+    if (HAL_CAN_AddTxMessage(&hcan1, &TxMessage, TxData, &TxMailbox) != HAL_OK)
     {
       /* Transmission request Error */
       Error_Handler();
     }
     /* Wait transmission complete */
-    while(HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) != 3) {}
-
-	}
-
+    while (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) != 3)
+    {
+    }
+  }
 }
 int spiTest()
 {
   const uint32_t num = 0xBEEFCAFE;
   uint8_t buffer[4];
 
-  if(spiWriteStatus(num) != HAL_OK)
-    {
-      /* Transmission request Error */
-      return -1;
-    }
-    for(int i = 0; i< 1000000 ; i++);
-    if( spiReadStatus(&buffer) != HAL_OK)
-    {
-      /* Transmission request Error */
-      return -1;
-    }
-    if(num != (uint32_t)(buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24) )) // Test Code to check reflected SPI message
-    {
-      return -1;
-    }
-    return 0;
+  if (spiWriteStatus(num) != HAL_OK)
+  {
+    /* Transmission request Error */
+    return -1;
+  }
+  for (int i = 0; i < 1000000; i++)
+    ;
+  if (spiReadStatus(&buffer) != HAL_OK)
+  {
+    /* Transmission request Error */
+    return -1;
+  }
+  if (num != (uint32_t)(buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24))) // Test Code to check reflected SPI message
+  {
+    return -1;
+  }
+  return 0;
 }
 int spiWriteStatus(uint32_t status)
 {
-    const uint8_t c = 0x01;
-    static uint8_t statusBuffer[4];
+  const uint8_t c = 0x01;
+  static uint8_t statusBuffer[4];
 
-    int rv = HAL_ERROR;
+  int rv = HAL_ERROR;
 
-    for(int i=0 ;i<4; i++)
-    {
-      statusBuffer[i] = ((status >> (i*8)) & 0xFF);
-    }
+  for (int i = 0; i < 4; i++)
+  {
+    statusBuffer[i] = ((status >> (i * 8)) & 0xFF);
+  }
 
-    HAL_GPIO_WritePin(GPIOE,GPIO_PIN_4,GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
 
-    rv = HAL_SPI_Transmit_IT(&hspi2,&c,1);
+  rv = HAL_SPI_Transmit_IT(&hspi2, &c, 1);
+
+  if (rv != HAL_OK)
+  {
+    return rv;
+  }
+  while (HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
+  {
+  }
+
+  for (int i = 0; i < 4; i++)
+  {
+    rv = HAL_SPI_Transmit_IT(&hspi2, statusBuffer + i, 1);
 
     if (rv != HAL_OK)
     {
       return rv;
     }
-    while(HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
-    {}
 
-    for(int i=0 ;i<4; i++)
+    while (HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
     {
-      rv = HAL_SPI_Transmit_IT(&hspi2,statusBuffer+i,1);
-
-      if (rv != HAL_OK)
-      {
-        return rv;
-      }
-
-      while(HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
-      {}
-
-
     }
-    HAL_GPIO_WritePin(GPIOE,GPIO_PIN_4,GPIO_PIN_SET);
+  }
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
 
-    return HAL_OK;
-
-
+  return HAL_OK;
 }
-int spiWrite(uint8_t *data,uint16_t dataLen,uint8_t *header,uint8_t headerLen)
+int spiWrite(uint8_t *data, uint16_t dataLen, uint8_t *header, uint8_t headerLen)
 {
-    uint8_t spiTxBuffer[32]={0};
-    uint16_t messageLength = dataLen + headerLen;
-    spiTxBuffer[0] = (messageLength) >> 8;
-    spiTxBuffer[1] = (messageLength);
-    int rv = HAL_ERROR;
-    if(messageLength < 32)
+  uint8_t spiTxBuffer[32] = {0};
+  uint16_t messageLength = dataLen + headerLen;
+  spiTxBuffer[0] = (messageLength) >> 8;
+  spiTxBuffer[1] = (messageLength);
+  int rv = HAL_ERROR;
+  if (messageLength < 32)
+  {
+    memcpy(spiTxBuffer + 2, header, headerLen);
+    memcpy(spiTxBuffer + headerLen + 2, data, dataLen);
+    rv = spiWriteData(spiTxBuffer);
+    if (rv != HAL_OK)
     {
-      memcpy(spiTxBuffer+2,header,headerLen);
-      memcpy(spiTxBuffer+headerLen+2,data,dataLen);
+      return rv;
+    }
+  }
+  else
+  {
+    memcpy(spiTxBuffer + 2, header, headerLen);
+    memcpy(spiTxBuffer + headerLen + 2, data, 32 - headerLen - 2);
+    rv = spiWriteData(spiTxBuffer);
+    if (rv != HAL_OK)
+    {
+      return rv;
+    }
+    dataLen = dataLen - 28;
+    data = data + (32 - headerLen - 2);
+    while (dataLen > 0)
+    {
+      HAL_Delay(1);
+      memset(spiTxBuffer, 0, 32);
+      if (dataLen >= 32)
+      {
+        memcpy(spiTxBuffer, data, 32);
+        data = data + 32;
+        dataLen = dataLen - 32;
+      }
+      else
+      {
+        memcpy(spiTxBuffer, data, dataLen);
+        data = data + dataLen;
+        dataLen = 0;
+      }
+
       rv = spiWriteData(spiTxBuffer);
       if (rv != HAL_OK)
       {
         return rv;
       }
     }
-    else
-    {
-      memcpy(spiTxBuffer+2,header,headerLen);
-      memcpy(spiTxBuffer+headerLen+2,data,32-headerLen-2);
-      rv = spiWriteData(spiTxBuffer);
-      if (rv != HAL_OK)
-      {
-        return rv;
-      }
-      dataLen = dataLen - 28;
-      data = data + (32 -headerLen -2);
-      while(dataLen > 0)
-      {
-        HAL_Delay(1);
-        memset(spiTxBuffer,0,32);
-        if(dataLen >= 32)
-        {
-          memcpy(spiTxBuffer,data,32);
-          data = data + 32;
-          dataLen = dataLen - 32 ;
-        }
-        else
-        {
-          memcpy(spiTxBuffer,data,dataLen);
-          data = data + dataLen;
-          dataLen = 0 ;
-        }
-
-        rv = spiWriteData(spiTxBuffer);
-        if (rv != HAL_OK)
-        {
-          return rv;
-        }
-      }
-
-
-    }
+  }
   return rv;
-
 }
 int spiWriteData(uint8_t *data)
 {
-    const uint8_t c[2] = {0x02,0x00};
+  const uint8_t c[2] = {0x02, 0x00};
 
-    int rv = HAL_ERROR;
+  int rv = HAL_ERROR;
 
-    HAL_GPIO_WritePin(GPIOE,GPIO_PIN_4,GPIO_PIN_RESET);
-    sm_usleep(20);
-    rv = HAL_SPI_Transmit_IT(&hspi2,&c,2);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+  sm_usleep(20);
+  rv = HAL_SPI_Transmit_IT(&hspi2, &c, 2);
 
-    if (rv != HAL_OK)
-    {
-      return rv;
-    }
-    while(HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
-    {}
-    rv = HAL_SPI_Transmit_IT(&hspi2,data,32);
-    while(HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
-    {}
-    HAL_GPIO_WritePin(GPIOE,GPIO_PIN_4,GPIO_PIN_SET);
-    sm_usleep(40);
-    return HAL_OK;
-
-
+  if (rv != HAL_OK)
+  {
+    return rv;
+  }
+  while (HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
+  {
+  }
+  rv = HAL_SPI_Transmit_IT(&hspi2, data, 32);
+  while (HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
+  {
+  }
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
+  sm_usleep(40);
+  return HAL_OK;
 }
 
 int spiReadStatus(uint8_t *readBuffer)
 {
-    uint8_t c = 0x04;
-    int rv = HAL_ERROR;
+  uint8_t c = 0x04;
+  int rv = HAL_ERROR;
 
-    memset(readBuffer, 0, sizeof(uint32_t));
+  memset(readBuffer, 0, sizeof(uint32_t));
 
-    HAL_GPIO_WritePin(GPIOE,GPIO_PIN_4,GPIO_PIN_RESET);
-    sm_usleep(20);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+  sm_usleep(20);
 
-    rv = HAL_SPI_Transmit_IT(&hspi2,&c,1);
+  rv = HAL_SPI_Transmit_IT(&hspi2, &c, 1);
 
-    if (rv != HAL_OK)
-    {
-      return rv;
-    }
+  if (rv != HAL_OK)
+  {
+    return rv;
+  }
 
-    while(HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
-    {}
+  while (HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
+  {
+  }
 
-    rv = HAL_SPI_Receive_IT(&hspi2,readBuffer,4);
+  rv = HAL_SPI_Receive_IT(&hspi2, readBuffer, 4);
 
-    if (rv != HAL_OK)
-    {
-      return rv;
-    }
+  if (rv != HAL_OK)
+  {
+    return rv;
+  }
 
-    while(HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
-    {}
+  while (HAL_SPI_GetState(&hspi2) != HAL_SPI_STATE_READY)
+  {
+  }
 
-    HAL_GPIO_WritePin(GPIOE,GPIO_PIN_4,GPIO_PIN_SET);
-    sm_usleep(20);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_SET);
+  sm_usleep(20);
 
-    return HAL_OK;
-
+  return HAL_OK;
 }
 
+void Can_Setup()
+{
 
-void Can_Setup(){
+  sFilterConfig.FilterBank = 0;
+  sFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+  sFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
+  sFilterConfig.FilterIdHigh = 0x0008 << 5;
+  sFilterConfig.FilterIdLow = 0x0000;
+  sFilterConfig.FilterMaskIdHigh = 0x40C << 5; // All four bytes must match to accept message
+  sFilterConfig.FilterMaskIdLow = 0x0000;
+  sFilterConfig.FilterFIFOAssignment = CAN_RX_FIFO0;
+  sFilterConfig.FilterActivation = ENABLE;
+  sFilterConfig.SlaveStartFilterBank = 14;
 
-	sFilterConfig.FilterBank= 0;
-	sFilterConfig.FilterMode= CAN_FILTERMODE_IDMASK;
-	sFilterConfig.FilterScale= CAN_FILTERSCALE_32BIT;
-  sFilterConfig.FilterIdHigh= 0x0008<<5;
-	sFilterConfig.FilterIdLow= 0x0000;
-	sFilterConfig.FilterMaskIdHigh= 0x40C<<5;  // All four bytes must match to accept message
-	sFilterConfig.FilterMaskIdLow= 0x0000;
-	sFilterConfig.FilterFIFOAssignment= CAN_RX_FIFO0;
-	sFilterConfig.FilterActivation= ENABLE;
-	sFilterConfig.SlaveStartFilterBank = 14;
-
-	HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig);
-  TxMessage.StdId= 0x3C8;     // OUR STDID
-	TxMessage.RTR= CAN_RTR_DATA;
-	TxMessage.IDE= CAN_ID_STD;
-	TxMessage.DLC= 3;
-	TxMessage.TransmitGlobalTime = DISABLE;
-
+  HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig);
+  TxMessage.StdId = 0x3C8; // OUR STDID
+  TxMessage.RTR = CAN_RTR_DATA;
+  TxMessage.IDE = CAN_ID_STD;
+  TxMessage.DLC = 3;
+  TxMessage.TransmitGlobalTime = DISABLE;
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -850,14 +887,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   {
     processing_time++;
 
-    if (processing_time >= 3)
+    if (processing_time > 4)
     {
       processing_time = 0;
       start_processing = true;
     }
   }
 }
-
 
 void InitializeTimer()
 {
@@ -901,7 +937,6 @@ void InitializeTimer()
   }
 }
 
-
 /* USER CODE END 4 */
 
 /**
@@ -912,14 +947,14 @@ void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
-  while(1)
+  while (1)
   {
-    HAL_GPIO_TogglePin(GPIOD,GPIO_PIN_13);
+    HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
   }
   /* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
@@ -928,7 +963,7 @@ void Error_Handler(void)
   * @retval None
   */
 void assert_failed(uint8_t *file, uint32_t line)
-{ 
+{
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
      tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
