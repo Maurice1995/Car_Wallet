@@ -122,7 +122,6 @@ void sm_usleep(uint32_t microsec)
     // HAL_Delay(microsec);
     DWT_Delay(microsec);
 }
-bool flag = false;
 int main(void)
 {
   /* USER CODE BEGIN 1 */
@@ -254,7 +253,7 @@ static void MX_CAN1_Init(void)
 
   /* USER CODE END CAN1_Init 1 */
   hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 6;
+  hcan1.Init.Prescaler = 6;  //500 kBits
   hcan1.Init.Mode = CAN_MODE_NORMAL;
   hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
   hcan1.Init.TimeSeg1 = CAN_BS1_11TQ;
@@ -592,27 +591,31 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
 
 
-	HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &RxMessage, RxData);
+  HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &RxMessage, RxData);
 
 
-		        if(((RxData[0]<<8 | RxData[1]) != 0xCAFE))
-		        {
-		          /* Rx message Error */
-		        	GPIOD->ODR = 0x00 << 12;
+  if(RxMessage.StdId == 0x098)
+  {
+    HAL_GPIO_TogglePin(GPIOD,GPIO_PIN_12);
+  }
+  else if(RxMessage.StdId == 0x309)
+  {
+    /* Rx message Error */
+    HAL_GPIO_TogglePin(GPIOD,GPIO_PIN_13);
+  }
+  else if(RxMessage.StdId == 0x3EB)
+  {
+    /* Rx message Error */
+    HAL_GPIO_TogglePin(GPIOD,GPIO_PIN_14);
 
-		        }
-		        else
-		        {
-		        	GPIOD->ODR = RxData[2] << 12;
+  }
 
-		        }
 
 
 }
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
   static uint8_t ledNum;
-  flag = !flag;
 	if (GPIO_Pin == GPIO_PIN_0)
 	{
 		/* Request transmission */
@@ -629,28 +632,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 	}
 
 }
-int spiTest()
-{
-  const uint32_t num = 0xBEEFCAFE;
-  uint8_t buffer[4];
 
-  if(spiWriteStatus(num) != HAL_OK)
-    {
-      /* Transmission request Error */
-      return -1;
-    }
-    for(int i = 0; i< 1000000 ; i++);
-    if( spiReadStatus(&buffer) != HAL_OK)
-    {
-      /* Transmission request Error */
-      return -1;
-    }
-    if(num != (uint32_t)(buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24) )) // Test Code to check reflected SPI message
-    {
-      return -1;
-    }
-    return 0;
-}
 int spiWriteStatus(uint32_t status)
 {
     const uint8_t c = 0x01;
@@ -820,24 +802,16 @@ void Can_Setup(){
 	sFilterConfig.FilterBank= 0;
 	sFilterConfig.FilterMode= CAN_FILTERMODE_IDMASK;
 	sFilterConfig.FilterScale= CAN_FILTERSCALE_32BIT;
-  #ifdef BOARD1
-	sFilterConfig.FilterIdHigh= 0xEF<<5;  //On second node change this to 0xBE
-  #elif defined(BOARD2)
-  sFilterConfig.FilterIdHigh= 0xBE<<5;
-  #endif
+  sFilterConfig.FilterIdHigh= 0x0008<<5;
 	sFilterConfig.FilterIdLow= 0x0000;
-	sFilterConfig.FilterMaskIdHigh= 0xFF<<5;  // All four bytes must match to accept message
+	sFilterConfig.FilterMaskIdHigh= 0x40C<<5;  // All four bytes must match to accept message
 	sFilterConfig.FilterMaskIdLow= 0x0000;
 	sFilterConfig.FilterFIFOAssignment= CAN_RX_FIFO0;
 	sFilterConfig.FilterActivation= ENABLE;
 	sFilterConfig.SlaveStartFilterBank = 14;
 
 	HAL_CAN_ConfigFilter(&hcan1, &sFilterConfig);
-  #ifdef BOARD1
-	TxMessage.StdId= 0xBE;  // On second node change this ID to 0xEF
-  #elif defined(BOARD2)
-  TxMessage.StdId= 0xEF;
-  #endif
+  TxMessage.StdId= 0x3C8;     // OUR STDID
 	TxMessage.RTR= CAN_RTR_DATA;
 	TxMessage.IDE= CAN_ID_STD;
 	TxMessage.DLC= 3;
