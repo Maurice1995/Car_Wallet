@@ -87,9 +87,9 @@ uint8_t tempVIN[] = {0x86, 0xae, 0x28, 0x43, 0x70, 0xe0, 0x7b, 0xe9, 0x2d, 0xa1,
 uint8_t rlp_tx[512] = {0};
 uint32_t tx_size;
 ETH_TX tx;
-const uint8_t SSID[128] = {"R3C"};
+const uint8_t SSID[128] = {"comay"};
 const uint8_t header[3][3] = {"ID", "PW", "TX"};
-const uint8_t PSWD[128] = {"code!riddle&"};
+const uint8_t PSWD[128] = {"111comay989"};
 uint8_t status[4];
 /* USER CODE END PV */
 
@@ -200,10 +200,11 @@ int main(void)
   const uint8_t testTx[] = {"0xf88d128504a817c800830186a094983530eb2c4ab3694f66c537bb8c83af80a7248b80a418935e80000000000000000000000000000000000000000000000000000000000005468e843ca380ffa09f973654a0fa726ab1ae16ff9fc971082627a954554df84b8bf4c3b017bae8b1a06732049603e0637274dd72c6e30cc060f77f04220720ba650e7fe7ea4e8214f2"};
 
   connectWifi();
-  //const uint8_t data[128]= {"comay123456789ciko123456789raca123456789conki123456789"};
 
   while (1)
   {
+//sendTx(testTx, sizeof(testTx));
+
     if (start_processing)
     {
       start_processing = false;
@@ -218,7 +219,7 @@ int main(void)
       prim = __get_PRIMASK();
 
       /* Disable interrupts */
-      __disable_irq();
+     // __disable_irq();
       if (isSynced)
       {
         isSynced = false;
@@ -226,7 +227,7 @@ int main(void)
         int gps = g_measurements.gps;
         int odo = g_measurements.odo;
         int vel = g_measurements.velocity;
-        
+
         // construct testTx from GPS & ODO & VEL
 
         /* Do some stuff here which can not be interrupted */
@@ -237,7 +238,7 @@ int main(void)
       /* Enable interrupts back only if they were enabled before we disable it here in this function */
       if (!prim)
       {
-        __enable_irq();
+       // __enable_irq();
       }
     }
   }
@@ -863,8 +864,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
   {
     processing_time++;
 
-    if (processing_time > 4)
+    if (processing_time > 3)
     {
+      isSynced = true;
       processing_time = 0;
       start_processing = true;
     }
@@ -884,7 +886,7 @@ void InitializeTimer()
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 1;
+  htim2.Init.Prescaler = 99;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim2.Init.Period = 479999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
