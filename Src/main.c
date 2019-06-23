@@ -44,15 +44,15 @@
 #define KEYSET (0x55)
 #define LOCK_SLOT ((uint16_t)0)
 #define KEY_SLOT ((uint16_t)2)
+#define NONCE_SLOT ((uint16_t)40)
+#define NONCE_SIZE_SLOT ((uint16_t)104)
 #define CONNECTED (0b00001000)
 #define TX_BUSY (0b00010000)
 #define SSID_READY (0b00000001)
 #define PSWD_READY (0b00000010)
 #define BOARD1
 
-#ifdef BOARD1
-//#define STORE_TEST
-#endif
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -91,6 +91,8 @@ const uint8_t SSID[128] = {"comay"};
 const uint8_t header[3][3] = {"ID", "PW", "TX"};
 const uint8_t PSWD[128] = {"111comay989"};
 uint8_t status[4];
+ETH_FIELD storedNonce;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -111,6 +113,10 @@ int A71CHStoreTest();
 int connectWifi();
 int sendTx(uint8_t *tx, uint16_t txLen);
 void generateIdentity();
+void InitializeTimer();
+int readNonce(ETH_FIELD *nonce);
+int updateNonce(ETH_FIELD *nonce);
+int getEpochOverNtp(ETH_FIELD *nonce);
 
 static int processing_time = 0;
 static volatile int start_processing = false;
@@ -119,9 +125,10 @@ static volatile bool isSynced = false;
 static struct measurements_t
 {
   uint8_t receivedFlags;
-  int velocity;
+  uint32_t velocity;
+  uint32_t displayed_velocity;
   int gps;
-  int odo;
+  uint32_t odo;
 } g_measurements = {0};
 
 enum flags_e
@@ -153,7 +160,6 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
-  InitializeTimer();
 
   /* USER CODE BEGIN Init */
 
@@ -171,6 +177,8 @@ int main(void)
   MX_CAN1_Init();
   MX_SPI2_Init();
   MX_I2C1_Init();
+  InitializeTimer();
+
   /* USER CODE BEGIN 2 */
   Can_Setup();
 
@@ -198,12 +206,18 @@ int main(void)
   uint32_t rnd = 0;
   uint8_t rndLen = 4;
   const uint8_t testTx[] = {"0xf88d128504a817c800830186a094983530eb2c4ab3694f66c537bb8c83af80a7248b80a418935e80000000000000000000000000000000000000000000000000000000000005468e843ca380ffa09f973654a0fa726ab1ae16ff9fc971082627a954554df84b8bf4c3b017bae8b1a06732049603e0637274dd72c6e30cc060f77f04220720ba650e7fe7ea4e8214f2"};
+  const uint8_t test1[] = {0xa9 ,0x00 ,0xff ,0x0f ,0x32 ,0xff ,0xcf ,0x7f};
+  const uint8_t test2[] = {0x3c ,0xb4 ,0x96 ,0xff ,0x00 ,0x00 ,0xf4 ,0x01 };
 
-  connectWifi();
 
+connectWifi();
+getEpochOverNtp(&storedNonce);
   while (1)
   {
-//sendTx(testTx, sizeof(testTx));
+
+    g_measurements.velocity = ( (test1[3] >> 4) | (test1[4] << 4)) & 0xFFF;
+    g_measurements.displayed_velocity =( (test2[7] << 8) | test2[6]) & 0xFFF;
+    g_measurements.odo = ( (test2[2] << 16) | (test2[1] << 8 ) | test2[0]) & 0xFFFFFF;
 
     if (start_processing)
     {
@@ -219,7 +233,7 @@ int main(void)
       prim = __get_PRIMASK();
 
       /* Disable interrupts */
-     // __disable_irq();
+      __disable_irq();
       if (isSynced)
       {
         isSynced = false;
@@ -231,15 +245,17 @@ int main(void)
         // construct testTx from GPS & ODO & VEL
 
         /* Do some stuff here which can not be interrupted */
-        sendTx(testTx, sizeof(testTx));
-        int rsp = A71_GetRandom(&rnd, rndLen);
+
       }
 
       /* Enable interrupts back only if they were enabled before we disable it here in this function */
       if (!prim)
       {
-       // __enable_irq();
+        __enable_irq();
       }
+
+      sendTx(testTx, sizeof(testTx));
+      int rsp = A71_GetRandom(&rnd, rndLen);
     }
   }
   /* USER CODE END 3 */
@@ -411,6 +427,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, GPIO_PIN_4, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_14 | GPIO_PIN_15, GPIO_PIN_RESET);
@@ -421,6 +438,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+  GPIO_InitStruct.Pin = GPIO_PIN_1;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA0 */
   GPIO_InitStruct.Pin = GPIO_PIN_0;
@@ -473,6 +496,34 @@ void generateIdentity()
       return -1;
     memset(pKey, 0, pKeyLen);
   }
+}
+
+int readNonce(ETH_FIELD *nonce)
+{
+  int rsp = ERR_COMM_ERROR;
+  rsp = A71_GetGpData(NONCE_SIZE_SLOT, &(nonce->size), sizeof(nonce->size));
+  if (rsp != SW_OK)
+    return -1;
+  if(nonce->size)
+  {
+    rsp = A71_GetGpData(NONCE_SLOT, nonce->bytes, nonce->size);
+    if (rsp != SW_OK)
+      return -1;
+  }
+  return 0;
+}
+
+int updateNonce(ETH_FIELD *nonce)
+{
+  int rsp = ERR_COMM_ERROR;
+  rsp = A71_SetGpData(NONCE_SLOT, nonce->bytes, nonce->size);
+  if (rsp != SW_OK)
+    return -1;
+  rsp = A71_SetGpData(NONCE_SIZE_SLOT, &(nonce->size), sizeof(nonce->size));
+  if (rsp != SW_OK)
+    return -1;
+  return 0;
+
 }
 int sendTx(uint8_t *tx, uint16_t txLen)
 {
@@ -553,6 +604,34 @@ int connectWifi()
     HAL_Delay(100);
   }
 }
+
+
+int getEpochOverNtp(ETH_FIELD *nonce)
+{
+  int rv = HAL_ERROR;
+  rv = spiReadStatus(status);
+  if (rv != HAL_OK)
+  {
+    return rv;
+  }
+  HAL_Delay(100);
+
+  while ((status[3] == 0))
+  {
+    rv = spiReadStatus(status);
+    if (rv != HAL_OK)
+    {
+      return rv;
+    }
+    HAL_Delay(100);
+
+  }
+  memcpy(nonce->bytes,status,4);
+  nonce->size = 4;
+  return 0;
+}
+
+
 int A71CHSignTest()
 {
 
@@ -632,14 +711,15 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 
   if (RxMessage.StdId == 0x098)
   {
-    g_measurements.velocity = RxData[0];
+    g_measurements.velocity = ( (RxData[4] >> 4) | (RxData[5] << 4)) & 0xFFF;
     g_measurements.receivedFlags |= RECEIVED_VELOCITY;
     HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_12);
   }
   else if (RxMessage.StdId == 0x309)
   {
     /* Rx message Error */
-    g_measurements.odo = RxData[0];
+    g_measurements.displayed_velocity =( (RxData[7] << 8) | RxData[6]) & 0xFFF;
+    g_measurements.odo = ( (RxData[2] << 16) | (RxData[1] << 8 ) | RxData[0]) & 0xFFFFFF;
     g_measurements.receivedFlags |= RECEIVED_ODO;
     HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_13);
   }
@@ -862,14 +942,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim->Instance == TIM2)
   {
-    processing_time++;
-
-    if (processing_time > 3)
-    {
       isSynced = true;
-      processing_time = 0;
       start_processing = true;
-    }
+
   }
 }
 
@@ -886,9 +961,9 @@ void InitializeTimer()
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 99;
+  htim2.Init.Prescaler = 299;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 479999;
+  htim2.Init.Period = 839999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
