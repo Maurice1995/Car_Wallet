@@ -40,7 +40,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define BOARD3
 #define KEYSET (0x55)
 #define LOCK_SLOT ((uint16_t)0)
 #define KEY_SLOT ((uint16_t)2)
@@ -50,7 +49,6 @@
 #define TX_BUSY (0b00010000)
 #define SSID_READY (0b00000001)
 #define PSWD_READY (0b00000010)
-#define BOARD1
 
 
 /* USER CODE END PD */
@@ -79,9 +77,6 @@ uint8_t TxData[8];
 uint8_t RxData[8];
 uint32_t TxMailbox;
 
-bool A71CHTestsPassed = false;
-bool NodeMcuTestsPassed = false;
-bool A71CHSignTestPassed = false;
 uint8_t tempVIN[] = {0x86, 0xae, 0x28, 0x43, 0x70, 0xe0, 0x7b, 0xe9, 0x2d, 0xa1, 0xa3, 0xb3, 0x41, 0x5a, 0x6f, 0x2f, 0x41, 0x7c, 0x3c, 0x68, 0xdb, 0x10, 0x0b, 0xb2, 0xf3, 0x87, 0x29, 0xab, 0x21, 0x3f, 0x7b, 0x29, 0xee, 0x25, 0x0b, 0x0b, 0xaa, 0x25, 0x6f, 0x7b, 0x84, 0x44, 0xf2, 0x6c, 0xea, 0x1c, 0xda, 0xa8, 0xc4, 0x1c, 0x82, 0x44, 0x7c, 0x5a, 0x80, 0x86, 0xa6, 0x70, 0x60, 0x9e, 0xca, 0xfb, 0xab, 0xd5};
 
 uint8_t rlp_tx[512] = {0};
@@ -187,19 +182,12 @@ int main(void)
     Error_Handler();
   }
 
-  TxData[0] = 0xCA;
-  TxData[1] = 0xFE;
-
   HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
   uint8_t Atr[64];
   uint16_t AtrLen = sizeof(Atr);
   int sw = smComSCI2C_Open(ESTABLISH_SCI2C, 0x00, Atr, &AtrLen);
 
-  if (sw != SW_OK)
-  {
-    A71CHTestsPassed = false;
-  }
 
   generateIdentity(); // Generates a priv key if it is not already set, it locks the first the byte of eeprom memory of A71CH after saving to its memory. After calling this function , call A71_GetGpData(KEY_SLOT,pKey,pKeyLen) to get the prik key stored
 
@@ -210,8 +198,9 @@ int main(void)
   const uint8_t test2[] = {0x3c ,0xb4 ,0x96 ,0xff ,0x00 ,0x00 ,0xf4 ,0x01 };
 
 
-connectWifi();
-getEpochOverNtp(&storedNonce);
+  connectWifi();
+  getEpochOverNtp(&storedNonce);
+
   while (1)
   {
 
