@@ -227,9 +227,9 @@ int main(void)
       {
         isSynced = false;
 
-        int gps = g_measurements.gps;
-        int odo = g_measurements.odo;
-        int vel = g_measurements.velocity;
+        int gps      =  g_measurements.gps;
+        int disp_vel =  g_measurements.displayed_velocity;
+        int vel      =  g_measurements.velocity;
 
         // construct testTx from GPS & ODO & VEL
 
