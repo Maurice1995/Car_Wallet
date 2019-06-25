@@ -1,4 +1,4 @@
-# STM32F407_CAN_DAIMLER
+# STM32F407 CAN bus CAR WALLET
 
 SPI &amp; CAN &amp; I2C test environment and drivers for Car wallet project
 
