@@ -49,7 +49,7 @@
 #define TX_BUSY (0b00010000)
 #define SSID_READY (0b00000001)
 #define PSWD_READY (0b00000010)
-
+#define MAS_MULTIPLIER 0.3017485143159276406820527 
 
 /* USER CODE END PD */
 
@@ -116,13 +116,18 @@ int getEpochOverNtp(ETH_FIELD *nonce);
 static int processing_time = 0;
 static volatile int start_processing = false;
 static volatile bool isSynced = false;
+typedef struct
+{
+ float latitude;
+ float longitude;
+}GPS;
 
 static struct measurements_t
 {
   uint8_t receivedFlags;
-  uint32_t velocity;
-  uint32_t displayed_velocity;
-  int gps;
+  uint16_t velocity;
+  uint16_t displayed_velocity;
+  GPS gps ;
   uint32_t odo;
 } g_measurements = {0};
 
@@ -196,7 +201,7 @@ int main(void)
   const uint8_t testTx[] = {"0xf88d128504a817c800830186a094983530eb2c4ab3694f66c537bb8c83af80a7248b80a418935e80000000000000000000000000000000000000000000000000000000000005468e843ca380ffa09f973654a0fa726ab1ae16ff9fc971082627a954554df84b8bf4c3b017bae8b1a06732049603e0637274dd72c6e30cc060f77f04220720ba650e7fe7ea4e8214f2"};
   const uint8_t test1[] = {0xa9 ,0x00 ,0xff ,0x0f ,0x32 ,0xff ,0xcf ,0x7f};
   const uint8_t test2[] = {0x3c ,0xb4 ,0x96 ,0xff ,0x00 ,0x00 ,0xf4 ,0x01 };
-
+  const uint8_t test3[] = {0xf7, 0x17, 0xa3, 0x62, 0xd6 ,0x0b, 0x67 ,0x86 };
 
   connectWifi();
   getEpochOverNtp(&storedNonce);
@@ -207,6 +212,8 @@ int main(void)
     g_measurements.velocity = ( (test1[3] >> 4) | (test1[4] << 4)) & 0xFFF;
     g_measurements.displayed_velocity =( (test2[7] << 8) | test2[6]) & 0xFFF;
     g_measurements.odo = ( (test2[2] << 16) | (test2[1] << 8 ) | test2[0]) & 0xFFFFFF;
+    g_measurements.gps.latitude = ( test3[0] | (test3[1]<<8) | (test3[2]<<16) | ( test3[3]<<24) )*MAS_MULTIPLIER;
+    g_measurements.gps.longitude = ( test3[4] | (test3[5]<<8) | (test3[6]<<16) | ( test3[7]<<24) )*MAS_MULTIPLIER;
 
     if (start_processing)
     {
@@ -715,7 +722,8 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
   else if (RxMessage.StdId == 0x3EB)
   {
     /* Rx message Error */
-    g_measurements.gps = RxData[0];
+    g_measurements.gps.latitude = ( RxData[0] | (RxData[1]<<8) | (RxData[2]<<16) | ( RxData[3]<<24) );
+    g_measurements.gps.longitude = ( RxData[4] | (RxData[5]<<8) | (RxData[6]<<16) | ( RxData[7]<<24) );
     g_measurements.receivedFlags |= RECEIVED_GPS;
     HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_14);
   }
