@@ -118,8 +118,8 @@ static volatile int start_processing = false;
 static volatile bool isSynced = false;
 typedef struct
 {
- float latitude;
- float longitude;
+ uint32_t latitude;
+ uint32_t longitude;
 }GPS;
 
 static struct measurements_t
@@ -213,8 +213,8 @@ int main(void)
     g_measurements.velocity = ( (test1[3] >> 4) | (test1[4] << 4)) & 0xFFF;
     g_measurements.displayed_velocity =( (test2[7] << 8) | test2[6]) & 0xFFF;
     g_measurements.odo = ( (test2[2] << 16) | (test2[1] << 8 ) | test2[0]) & 0xFFFFFF;
-    g_measurements.gps.latitude = ( test3[0] | (test3[1]<<8) | (test3[2]<<16) | ( test3[3]<<24) )*MAS_MULTIPLIER;
-    g_measurements.gps.longitude = ( test3[4] | (test3[5]<<8) | (test3[6]<<16) | ( test3[7]<<24) )*MAS_MULTIPLIER;
+    g_measurements.gps.latitude = ( test3[0] | (test3[1]<<8) | (test3[2]<<16) | ( test3[3]<<24) );
+    g_measurements.gps.longitude = ( test3[4] | (test3[5]<<8) | (test3[6]<<16) | ( test3[7]<<24) );
 
     if (start_processing)
     {
@@ -235,11 +235,11 @@ int main(void)
       {
         isSynced = false;
 
-        uint32_t gps      =  g_measurements.odo;
-        uint32_t disp_vel =  g_measurements.displayed_velocity;
-        uint32_t vel      =  g_measurements.velocity;
-        float latitude = g_measurements.gps.latitude;
-        float longitude = g_measurements.gps.longitude;
+        uint32_t odo      =  g_measurements.odo*0.1;
+        uint32_t disp_vel =  g_measurements.displayed_velocity*0.1;
+        uint32_t vel      =  g_measurements.velocity*0.1;
+        float latitude  = ((g_measurements.gps.latitude)*MAS_MULTIPLIER - 324000000)/3600;
+        float longitude = ((g_measurements.gps.longitude)*MAS_MULTIPLIER - 648000000)/3600;
         g_measurements.receivedFlags = RECEIVED_RESET;
         // construct testTx from GPS & ODO & VEL
 
