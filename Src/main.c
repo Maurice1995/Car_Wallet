@@ -237,6 +237,8 @@ int main(void)
         uint32_t gps      =  g_measurements.odo;
         uint32_t disp_vel =  g_measurements.displayed_velocity;
         uint32_t vel      =  g_measurements.velocity;
+        float latitude = g_measurements.gps.latitude;
+        float longitude = g_measurements.gps.longitude;
 
         // construct testTx from GPS & ODO & VEL
 
