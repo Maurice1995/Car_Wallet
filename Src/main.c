@@ -95,7 +95,7 @@ uint8_t TxData[8];
 uint8_t RxData[8];
 uint32_t TxMailbox;
 
-uint8_t tempVIN[] = {0x86, 0xae, 0x28, 0x43, 0x70, 0xe0, 0x7b, 0xe9, 0x2d, 0xa1, 0xa3, 0xb3, 0x41, 0x5a, 0x6f, 0x2f, 0x41, 0x7c, 0x3c, 0x68, 0xdb, 0x10, 0x0b, 0xb2, 0xf3, 0x87, 0x29, 0xab, 0x21, 0x3f, 0x7b, 0x29, 0xee, 0x25, 0x0b, 0x0b, 0xaa, 0x25, 0x6f, 0x7b, 0x84, 0x44, 0xf2, 0x6c, 0xea, 0x1c, 0xda, 0xa8, 0xc4, 0x1c, 0x82, 0x44, 0x7c, 0x5a, 0x80, 0x86, 0xa6, 0x70, 0x60, 0x9e, 0xca, 0xfb, 0xab, 0xd5};
+uint8_t tempVIN[] = {0x86, 0xae, 0x28, 0x43, 0x70, 0xe0, 0x7b, 0xe9, 0x2d, 0xa1, 0xa3, 0xb3, 0x41, 0x5a, 0x6f, 0x2f, 0x41, 0x7c, 0x3c, 0x68, 0xdb, 0x10, 0x0b, 0xb2, 0xf3, 0x87, 0x29, 0xab, 0x21, 0x3f, 0x7b, 0x29};
 
 uint8_t rlp_tx[512] = {0};
 uint32_t tx_size;
@@ -130,7 +130,7 @@ void InitializeTimer();
 int readNonce(ETH_FIELD *nonce);
 int updateNonce(ETH_FIELD *nonce);
 int getEpochOverNtp(ETH_FIELD *nonce);
-
+void   increaseNonce();
 static int processing_time = 0;
 static volatile int start_processing = false;
 static volatile bool isSynced = false;
@@ -181,7 +181,7 @@ void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32
   tx.chain_id = EVAN_CHAIN_ID;
   memcpy(&tx.nonce, nonce, sizeof(ETH_FIELD));
   tx.nonce.size = nonce->size;
-
+  increaseNonce();
   memcpy(&tx.gas_price, EVAN_GAS_PRICE, sizeof(EVAN_GAS_PRICE));
   tx.gas_price.size = sizeof(EVAN_GAS_PRICE);
 
@@ -284,7 +284,11 @@ int main(void)
 
   while (1)
   {
-
+    uint32_t odo;
+    uint32_t disp_vel;
+    uint32_t vel;
+    float latitude;
+    float longitude;
     g_measurements.velocity = ( (test1[3] >> 4) | (test1[4] << 4)) & 0xFFF;
     g_measurements.displayed_velocity =( (test2[7] << 8) | test2[6]) & 0xFFF;
     g_measurements.odo = ( (test2[2] << 16) | (test2[1] << 8 ) | test2[0]) & 0xFFFFFF;
@@ -310,11 +314,11 @@ int main(void)
       {
         isSynced = false;
 
-        uint32_t odo      =  g_measurements.odo*0.1;
-        uint32_t disp_vel =  g_measurements.displayed_velocity*0.1;
-        uint32_t vel      =  g_measurements.velocity*0.1;
-        float latitude  = ((g_measurements.gps.latitude)*MAS_MULTIPLIER - 324000000)/3600;
-        float longitude = ((g_measurements.gps.longitude)*MAS_MULTIPLIER - 648000000)/3600;
+        odo      =  g_measurements.odo*0.1;
+        disp_vel =  g_measurements.displayed_velocity*0.1;
+        vel      =  g_measurements.velocity*0.1;
+        latitude  = ((g_measurements.gps.latitude)*MAS_MULTIPLIER - 324000000)/3600;
+        longitude = ((g_measurements.gps.longitude)*MAS_MULTIPLIER - 648000000)/3600;
         g_measurements.receivedFlags = RECEIVED_RESET;
         // construct testTx from GPS & ODO & VEL
 
@@ -327,8 +331,8 @@ int main(void)
       {
         __enable_irq();
       }
-
-      sendTx(testTx, sizeof(testTx));
+      get_transaction(disp_vel,odo,latitude,longitude,tempVIN,&storedNonce,rlp_tx,sizeof(rlp_tx));
+      sendTx(rlp_tx, sizeof(rlp_tx));
       int rsp = A71_GetRandom(&rnd, rndLen);
     }
   }
@@ -571,7 +575,12 @@ void generateIdentity()
     memset(pKey, 0, pKeyLen);
   }
 }
-
+void increaseNonce()
+{
+  uint32_t buffer = storedNonce.bytes[0] | (storedNonce.bytes[1]<<8) | (storedNonce.bytes[2]<<16) | (storedNonce.bytes[3]<<24);
+  buffer ++ ;
+  memcpy(storedNonce.bytes,&buffer,4);
+}
 int readNonce(ETH_FIELD *nonce)
 {
   int rsp = ERR_COMM_ERROR;
