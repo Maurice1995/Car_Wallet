@@ -57,15 +57,15 @@
 #define EVAN_NUM_CONTRACT_PARAMETERS 5
 uint8_t EVAN_DAIMLER_SET_INFO_METHOD_ID[] = {0x17, 0x56, 0xcd, 0x8d};
 
-#ifdef EVAN_TESTNET
-#define EVAN_CHAIN_ID (uint32_t)0x6ec0511e
+#ifdef EVAN_MAINNET// TODO: find what is the gas price/limit/contract for mainnet
+#define EVAN_CHAIN_ID (uint32_t)0x1e51c06e
 uint32_t EVAN_GAS_PRICE = 0x04a817c8;
 uint32_t EVAN_GAS_LIMIT = 0x0186a0;
 uint8_t EVAN_CONTRACT[] = {0x3d, 0xca, 0xb9, 0x7c, 0x38, 0x1f, 0xa3, 0xe8, 0xcb, 0xec, 0xcd, 0xad, 0x6f, 0xee, 0x59, 0x38, 0xbc, 0x51, 0x2c, 0xd7};
-#else // EVAN_MAINNET // TODO: find what is the gas price/limit/contract for mainnet
-#define EVAN_CHAIN_ID (uint32_t)0xC06E
-uint32_t EVAN_GAS_PRICE = 0x04a817c8;
-uint32_t EVAN_GAS_LIMIT = 0x0186a0;
+#else // EVAN_TESTNET 
+#define EVAN_CHAIN_ID (uint32_t)0x1e51c06e
+uint32_t EVAN_GAS_PRICE = 0xc817a804;
+uint32_t EVAN_GAS_LIMIT = 0xa0860100;
 uint8_t EVAN_CONTRACT[] = {0x3d, 0xca, 0xb9, 0x7c, 0x38, 0x1f, 0xa3, 0xe8, 0xcb, 0xec, 0xcd, 0xad, 0x6f, 0xee, 0x59, 0x38, 0xbc, 0x51, 0x2c, 0xd7};
 #endif
 
@@ -169,7 +169,26 @@ void sm_usleep(uint32_t microsec)
   DWT_Delay(microsec);
 }
 
-void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32_t longitude, uint8_t vin[32], ETH_FIELD *nonce, uint8_t *serialized_tx, uint32_t tx_max_size)
+// ETH BLOCK
+// Gets filled at generateIdentity
+uint8_t private_key[32] = {0};
+
+// Ethereum library needs this to know where to get the private key.
+void get_private_key(uint8_t priv_key[32])
+{
+  uint8_t test_private_key[32] = {0x3f,0xc8,0x65,0x69,0x19,0x50,0x86,0x14,0xda,0x65,0x6b,0x85,0x1b,0x49,0x71,0x79,0xdc,0x39,0x15,0xfc,0xfb,0x27,0x74,0x21,0x7e,0x56,0x9a,0x48,0xe7,0xf0,0x53,0x89};
+
+    memcpy(priv_key, test_private_key, 32);
+}
+
+uint32_t random32(void)
+{
+  uint32_t r;
+  //A71_GetRandom(&r, 4);
+  return HAL_GetTick();
+}
+
+void get_transaction(uint32_t speed, uint32_t mileage, uint32_t latitude, uint32_t longitude, uint8_t vin[32], ETH_FIELD *nonce, uint8_t *serialized_tx, uint32_t tx_max_size)
 {
   ETH_TX tx;
 
@@ -217,11 +236,22 @@ void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32
     parameter_sizes, 
     EVAN_NUM_CONTRACT_PARAMETERS,
     tx.data.bytes,
-    sizeof(tx.data.bytes)
+    256
   );
+  tx.data.size = 4 + 32 * EVAN_NUM_CONTRACT_PARAMETERS;
+
 
   // Build, sign and serialize transaction
   get_ethereum_tx(&tx, serialized_tx, &tx_max_size);
+
+  char aa[512*3] = {0};
+  char *aaa = aa;
+  for(uint32_t i=0; i < tx_max_size; i++)
+  {
+
+    sprintf(aaa, "%02x", serialized_tx[i]);
+    aaa += 2;
+  }
 
 }
 
@@ -254,15 +284,15 @@ int main(void)
   MX_I2C1_Init();
   InitializeTimer();
 
-  /* USER CODE BEGIN 2 */
-  Can_Setup();
+  // /* USER CODE BEGIN 2 */
+  // Can_Setup();
 
-  if (HAL_CAN_Start(&hcan1) != HAL_OK)
-  {
-    Error_Handler();
-  }
+  // if (HAL_CAN_Start(&hcan1) != HAL_OK)
+  // {
+  //   Error_Handler();
+  // }
 
-  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+  // HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
   uint8_t Atr[64];
   uint16_t AtrLen = sizeof(Atr);
@@ -318,6 +348,13 @@ int main(void)
         /* Do some stuff here which can not be interrupted */
 
       }
+
+      uint8_t vin[32] = {0};
+      uint8_t serialized_tx[512] = {0};
+      ETH_FIELD nonce;
+      nonce.bytes[0] = 0x13;
+      nonce.size = 1;
+      get_transaction(9324037,9324037,9324037,9324037, vin, &nonce, serialized_tx, 512);
 
       /* Enable interrupts back only if they were enabled before we disable it here in this function */
       if (!prim)
@@ -565,6 +602,8 @@ void generateIdentity()
     rsp = A71_SetGpData(LOCK_SLOT, &keyIsSet, sizeof(keyIsSet));
     if (rsp != SW_OK)
       return -1;
+
+    memcpy(private_key, pKey, 32);
     memset(pKey, 0, pKeyLen);
   }
 }
