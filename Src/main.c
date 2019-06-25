@@ -51,6 +51,24 @@
 #define PSWD_READY (0b00000010)
 #define MAS_MULTIPLIER 0.3017485143159276406820527 
 
+
+// EVAN DETAILS
+
+#define EVAN_NUM_CONTRACT_PARAMETERS 5
+uint8_t EVAN_DAIMLER_SET_INFO_METHOD_ID[] = {0x17, 0x56, 0xcd, 0x8d};
+
+#ifdef EVAN_TESTNET
+#define EVAN_CHAIN_ID (uint32_t)0x6ec0511e
+#define EVAN_GAS_PRICE (uint32_t) 0x04a817c8
+#define EVAN_GAS_LIMIT (uint32_t) 0x0186a0
+uint8_t EVAN_CONTRACT[] = {0x3d, 0xca, 0xb9, 0x7c, 0x38, 0x1f, 0xa3, 0xe8, 0xcb, 0xec, 0xcd, 0xad, 0x6f, 0xee, 0x59, 0x38, 0xbc, 0x51, 0x2c, 0xd7};
+#else // EVAN_MAINNET // TODO: find what is the gas price/limit/contract for mainnet
+#define EVAN_CHAIN_ID (uint32_t)0xC06E
+#define EVAN_GAS_PRICE (uint32_t) 0x04a817c8
+#define EVAN_GAS_LIMIT (uint32_t) 0x0186a0
+uint8_t EVAN_CONTRACT[] = {0x3d, 0xca, 0xb9, 0x7c, 0x38, 0x1f, 0xa3, 0xe8, 0xcb, 0xec, 0xcd, 0xad, 0x6f, 0xee, 0x59, 0x38, 0xbc, 0x51, 0x2c, 0xd7};
+#endif
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -150,6 +168,63 @@ void sm_usleep(uint32_t microsec)
   // HAL_Delay(microsec);
   DWT_Delay(microsec);
 }
+
+void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32_t longitude, uint8_t vin[32], ETH_FIELD *nonce, uint8_t *serialized_tx, uint32_t tx_max_size)
+{
+  ETH_TX tx;
+
+  memset(serialized_tx, 0, tx_max_size);
+  memset(&tx, 0, sizeof(ETH_TX));
+  
+  // Build transaction details
+  tx.chain_id = EVAN_CHAIN_ID;
+  memcpy(&tx.nonce, nonce, sizeof(ETH_FIELD));
+  tx.nonce.size = nonce->size;
+
+  memcpy(&tx.gas_price, EVAN_GAS_PRICE, sizeof(EVAN_GAS_PRICE));
+  tx.gas_price.size = sizeof(EVAN_GAS_PRICE);
+
+  memcpy(&tx.gas_limit, EVAN_GAS_LIMIT, sizeof(EVAN_GAS_LIMIT));
+  tx.gas_limit.size = sizeof(EVAN_GAS_LIMIT);
+
+  memcpy(&tx.to, EVAN_CONTRACT, sizeof(EVAN_CONTRACT));
+  tx.to.size = sizeof(EVAN_CONTRACT);
+
+  // Build contract method parameters
+  uint8_t parameters[EVAN_NUM_CONTRACT_PARAMETERS][32];
+  uint32_t parameter_sizes[EVAN_NUM_CONTRACT_PARAMETERS];
+  uint8_t index = 0;
+
+  memcpy(parameters[index], (uint8_t*) &speed, sizeof(speed));
+  parameter_sizes[index++] = sizeof(speed);
+
+  memcpy(parameters[index], (uint8_t*) &mileage, sizeof(mileage));
+  parameter_sizes[index++] = sizeof(mileage) ;
+
+  memcpy(parameters[index], (uint8_t*) &latitude, sizeof(latitude));
+  parameter_sizes[index++] = sizeof(latitude) ;
+
+  memcpy(parameters[index], (uint8_t*) &longitude, sizeof(longitude));
+  parameter_sizes[index++] = sizeof(longitude) ;
+
+  memcpy(parameters[index], (uint8_t*) &vin, sizeof(vin));
+  parameter_sizes[index++] = 32;
+
+  // Build data field fo tx
+  build_raw_data_input(
+    EVAN_DAIMLER_SET_INFO_METHOD_ID, 
+    parameters, 
+    parameter_sizes, 
+    EVAN_NUM_CONTRACT_PARAMETERS,
+    tx.data.bytes,
+    sizeof(tx.data.bytes)
+  );
+
+  // Build, sign and serialize transaction
+  get_ethereum_tx(&tx, serialized_tx, &tx_max_size);
+
+}
+
 int main(void)
 {
   /* USER CODE BEGIN 1 */
