@@ -77,48 +77,47 @@ A71CH/dwt_delay/dwt_delay.c \
 A71CH/se_hostlib/common/sm_errors.c \
 A71CH/libCommon/hostCrypto/hcAsn.c \
 Src/system_stm32f4xx.c \
-ethTxBuilder/contract.c \
-ethTxBuilder/rlp.c \
-ethTxBuilder/transaction.c \
-ethTxBuilder/libs/trezor-crypto/address.c  \
-ethTxBuilder/libs/trezor-crypto/base32.c \
-ethTxBuilder/libs/trezor-crypto/base58.c \
-ethTxBuilder/libs/trezor-crypto/bignum.c \
-ethTxBuilder/libs/trezor-crypto/bip32.c \
-ethTxBuilder/libs/trezor-crypto/bip39.c \
-ethTxBuilder/libs/trezor-crypto/blake256.c \
-ethTxBuilder/libs/trezor-crypto/blake2b.c \
-ethTxBuilder/libs/trezor-crypto/blake2s.c \
-ethTxBuilder/libs/trezor-crypto/cash_addr.c \
-ethTxBuilder/libs/trezor-crypto/curves.c \
-ethTxBuilder/libs/trezor-crypto/ecdsa.c \
-ethTxBuilder/libs/trezor-crypto/groestl.c \
-ethTxBuilder/libs/trezor-crypto/hasher.c \
-ethTxBuilder/libs/trezor-crypto/hmac.c \
-ethTxBuilder/libs/trezor-crypto/memzero.c \
-ethTxBuilder/libs/trezor-crypto/nem.c \
-ethTxBuilder/libs/trezor-crypto/nist256p1.c \
-ethTxBuilder/libs/trezor-crypto/pbkdf2.c \
-ethTxBuilder/libs/trezor-crypto/rand.c \
-ethTxBuilder/libs/trezor-crypto/rc4.c \
-ethTxBuilder/libs/trezor-crypto/rfc6979.c \
-ethTxBuilder/libs/trezor-crypto/ripemd160.c \
-ethTxBuilder/libs/trezor-crypto/script.c \
-ethTxBuilder/libs/trezor-crypto/secp256k1.c \
-ethTxBuilder/libs/trezor-crypto/segwit_addr.c \
-ethTxBuilder/libs/trezor-crypto/sha2.c \
-ethTxBuilder/libs/trezor-crypto/sha3.c \
-ethTxBuilder/libs/trezor-crypto/ed25519-donna/curve25519-donna-32bit.c \
-ethTxBuilder/libs/trezor-crypto/ed25519-donna/curve25519-donna-helpers.c \
-ethTxBuilder/libs/trezor-crypto/ed25519-donna/curve25519-donna-scalarmult-base.c \
-ethTxBuilder/libs/trezor-crypto/ed25519-donna/ed25519.c \
-ethTxBuilder/libs/trezor-crypto/ed25519-donna/ed25519-donna-32bit-tables.c \
-ethTxBuilder/libs/trezor-crypto/ed25519-donna/ed25519-donna-basepoint-table.c \
-ethTxBuilder/libs/trezor-crypto/ed25519-donna/ed25519-donna-impl-base.c \
-ethTxBuilder/libs/trezor-crypto/ed25519-donna/ed25519-keccak.c \
-ethTxBuilder/libs/trezor-crypto/ed25519-donna/ed25519-sha3.c \
-ethTxBuilder/libs/trezor-crypto/ed25519-donna/modm-donna-32bit.c \
-ethTxBuilder/libs/tiny-bignum-c/bn.c
+libs/eth-tx-builder/src/contract.c \
+libs/eth-tx-builder/src/rlp.c \
+libs/eth-tx-builder/src/transaction.c \
+libs/eth-tx-builder/libs/trezor-crypto/address.c  \
+libs/eth-tx-builder/libs/trezor-crypto/base32.c \
+libs/eth-tx-builder/libs/trezor-crypto/base58.c \
+libs/eth-tx-builder/libs/trezor-crypto/bignum.c \
+libs/eth-tx-builder/libs/trezor-crypto/bip32.c \
+libs/eth-tx-builder/libs/trezor-crypto/bip39.c \
+libs/eth-tx-builder/libs/trezor-crypto/blake256.c \
+libs/eth-tx-builder/libs/trezor-crypto/blake2b.c \
+libs/eth-tx-builder/libs/trezor-crypto/blake2s.c \
+libs/eth-tx-builder/libs/trezor-crypto/cash_addr.c \
+libs/eth-tx-builder/libs/trezor-crypto/curves.c \
+libs/eth-tx-builder/libs/trezor-crypto/ecdsa.c \
+libs/eth-tx-builder/libs/trezor-crypto/groestl.c \
+libs/eth-tx-builder/libs/trezor-crypto/hasher.c \
+libs/eth-tx-builder/libs/trezor-crypto/hmac.c \
+libs/eth-tx-builder/libs/trezor-crypto/memzero.c \
+libs/eth-tx-builder/libs/trezor-crypto/nem.c \
+libs/eth-tx-builder/libs/trezor-crypto/nist256p1.c \
+libs/eth-tx-builder/libs/trezor-crypto/pbkdf2.c \
+libs/eth-tx-builder/libs/trezor-crypto/rand.c \
+libs/eth-tx-builder/libs/trezor-crypto/rc4.c \
+libs/eth-tx-builder/libs/trezor-crypto/ripemd160.c \
+libs/eth-tx-builder/libs/trezor-crypto/script.c \
+libs/eth-tx-builder/libs/trezor-crypto/secp256k1.c \
+libs/eth-tx-builder/libs/trezor-crypto/segwit_addr.c \
+libs/eth-tx-builder/libs/trezor-crypto/sha2.c \
+libs/eth-tx-builder/libs/trezor-crypto/sha3.c \
+libs/eth-tx-builder/libs/trezor-crypto/ed25519-donna/curve25519-donna-32bit.c \
+libs/eth-tx-builder/libs/trezor-crypto/ed25519-donna/curve25519-donna-helpers.c \
+libs/eth-tx-builder/libs/trezor-crypto/ed25519-donna/curve25519-donna-scalarmult-base.c \
+libs/eth-tx-builder/libs/trezor-crypto/ed25519-donna/ed25519.c \
+libs/eth-tx-builder/libs/trezor-crypto/ed25519-donna/ed25519-donna-32bit-tables.c \
+libs/eth-tx-builder/libs/trezor-crypto/ed25519-donna/ed25519-donna-basepoint-table.c \
+libs/eth-tx-builder/libs/trezor-crypto/ed25519-donna/ed25519-donna-impl-base.c \
+libs/eth-tx-builder/libs/trezor-crypto/ed25519-donna/ed25519-keccak.c \
+libs/eth-tx-builder/libs/trezor-crypto/ed25519-donna/ed25519-sha3.c \
+libs/eth-tx-builder/libs/trezor-crypto/ed25519-donna/modm-donna-32bit.c \
+libs/eth-tx-builder/libs/tiny-bignum-c/bn.c
 
 
 
@@ -199,10 +198,10 @@ C_INCLUDES =  \
 -IA71CH \
 -IA71CH/dwt_delay \
 -IA71CH/libCommon/hostCrypto \
--IethTxBuilder/include \
--IethTxBuilder/libs/tiny-bignum-c \
--IethTxBuilder/trezor-crypto/ed25519_sign \
--IethTxBuilder/libs/trezor-crypto
+-Ilibs/eth-tx-builder/include \
+-Ilibs/eth-tx-builder/libs/tiny-bignum-c \
+-Ilibs/eth-tx-builder/trezor-crypto/ed25519_sign \
+-Ilibs/eth-tx-builder/libs/trezor-crypto
 
 
 
