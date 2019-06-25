@@ -1,0 +1,3 @@
+[submodule "libs/eth-tx-builder"]
+	path = libs/eth-tx-builder
+	url = git@github.com:RiddleAndCode/eth-tx-builder.git
