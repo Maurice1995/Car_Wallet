@@ -133,6 +133,7 @@ static struct measurements_t
 
 enum flags_e
 {
+  RECEIVED_RESET = 0x00,
   RECEIVED_VELOCITY = 0x01,
   RECEIVED_GPS = 0x02,
   RECEIVED_ODO = 0x04,
@@ -239,7 +240,7 @@ int main(void)
         uint32_t vel      =  g_measurements.velocity;
         float latitude = g_measurements.gps.latitude;
         float longitude = g_measurements.gps.longitude;
-
+        g_measurements.receivedFlags = RECEIVED_RESET;
         // construct testTx from GPS & ODO & VEL
 
         /* Do some stuff here which can not be interrupted */
