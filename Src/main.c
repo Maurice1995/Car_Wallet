@@ -324,17 +324,16 @@ int main(void)
         // construct testTx from GPS & ODO & VEL
 
         /* Do some stuff here which can not be interrupted */
-
+        if (!prim)
+        {
+          __enable_irq();
+        }
+        get_transaction(disp_vel,odo,latitude,longitude,tempVIN,&storedNonce,rlp_tx,sizeof(rlp_tx));
+        sendTx(testTx, sizeof(testTx));
       }
 
       /* Enable interrupts back only if they were enabled before we disable it here in this function */
-      if (!prim)
-      {
-        __enable_irq();
-      }
-      get_transaction(disp_vel,odo,latitude,longitude,tempVIN,&storedNonce,rlp_tx,sizeof(rlp_tx));
-      sendTx(rlp_tx, sizeof(rlp_tx));
-      int rsp = A71_GetRandom(&rnd, rndLen);
+
     }
   }
   /* USER CODE END 3 */
