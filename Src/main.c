@@ -219,6 +219,7 @@ void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32
     tx.data.bytes,
     sizeof(tx.data.bytes)
   );
+  tx.data.size = 4 + 32 * EVAN_NUM_CONTRACT_PARAMETERS;
 
   // Build, sign and serialize transaction
   get_ethereum_tx(&tx, serialized_tx, tx_max_size);
