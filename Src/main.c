@@ -59,13 +59,22 @@ uint8_t EVAN_DAIMLER_SET_INFO_METHOD_ID[] = {0x17, 0x56, 0xcd, 0x8d};
 
 #ifdef EVAN_TESTNET
 #define EVAN_CHAIN_ID (uint32_t)0x6ec0511e
+<<<<<<< HEAD
 uint32_t EVAN_GAS_PRICE = 0x09d1ffff;
 uint32_t EVAN_GAS_LIMIT = 0xf4240;
+=======
+uint32_t EVAN_GAS_PRICE = 0x04a817c8;
+uint32_t EVAN_GAS_LIMIT = 0x0186a0;
+>>>>>>> 23f9a0e... fix field types
 uint8_t EVAN_CONTRACT[] = {0x3d, 0xca, 0xb9, 0x7c, 0x38, 0x1f, 0xa3, 0xe8, 0xcb, 0xec, 0xcd, 0xad, 0x6f, 0xee, 0x59, 0x38, 0xbc, 0x51, 0x2c, 0xd7};
 #else // EVAN_MAINNET // TODO: find what is the gas price/limit/contract for mainnet
 #define EVAN_CHAIN_ID (uint32_t)0xC06E
 uint32_t EVAN_GAS_PRICE = 0x04a817c8;
+<<<<<<< HEAD
 uint32_t EVAN_GAS_LIMIT = 0x09d1ffff;
+=======
+uint32_t EVAN_GAS_LIMIT = 0x0186a0;
+>>>>>>> 23f9a0e... fix field types
 uint8_t EVAN_CONTRACT[] = {0x3d, 0xca, 0xb9, 0x7c, 0x38, 0x1f, 0xa3, 0xe8, 0xcb, 0xec, 0xcd, 0xad, 0x6f, 0xee, 0x59, 0x38, 0xbc, 0x51, 0x2c, 0xd7};
 #endif
 
@@ -183,10 +192,17 @@ void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32
   memcpy(&tx.nonce, nonce, sizeof(ETH_FIELD));
   tx.nonce.size = nonce->size;
 
+<<<<<<< HEAD
   memcpy(&tx.gas_price.bytes, &EVAN_GAS_PRICE, sizeof(EVAN_GAS_PRICE));
   tx.gas_price.size = sizeof(EVAN_GAS_PRICE);
 
   memcpy(&tx.gas_limit.bytes, &EVAN_GAS_LIMIT, sizeof(EVAN_GAS_LIMIT));
+=======
+  memcpy(&tx.gas_price.bytes, (uint8_t*)&EVAN_GAS_PRICE, sizeof(EVAN_GAS_PRICE));
+  tx.gas_price.size = sizeof(EVAN_GAS_PRICE);
+
+  memcpy(&tx.gas_limit.bytes, (uint8_t*)&EVAN_GAS_LIMIT, sizeof(EVAN_GAS_LIMIT));
+>>>>>>> 23f9a0e... fix field types
   tx.gas_limit.size = sizeof(EVAN_GAS_LIMIT);
 
   memcpy(&tx.to.bytes, (uint8_t*)&EVAN_CONTRACT, sizeof(EVAN_CONTRACT));
