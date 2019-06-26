@@ -59,7 +59,7 @@ uint8_t EVAN_DAIMLER_SET_INFO_METHOD_ID[] = {0x17, 0x56, 0xcd, 0x8d};
 
 #ifdef EVAN_TESTNET
 #define EVAN_CHAIN_ID (uint32_t)0x6ec0511e
-uint8_t EVAN_GAS_PRICE[] = { 0x04, 0xa8, 0x17, 0xc8, 0x00}; //  "gasPrice": 20000000000,
+uint8_t EVAN_GAS_PRICE[] = { 0x05, 0xa8, 0x17, 0xc8, 0x00}; //  "gasPrice": 20000000000,
 uint8_t EVAN_GAS_LIMIT[] = { 0x01, 0x86, 0xa0 }; //   "gasLimit": 100000,
 uint8_t  EVAN_CONTRACT[] = { 0x3d, 0xca, 0xb9, 0x7c, 0x38, 0x1f, 0xa3, 0xe8, 0xcb, 0xec, 0xcd, 0xad, 0x6f, 0xee, 0x59, 0x38, 0xbc, 0x51, 0x2c, 0xd7};
 #else // EVAN_MAINNET // TODO: find what is the gas price/limit/contract for mainnet
@@ -97,7 +97,7 @@ uint32_t TxMailbox;
 uint8_t tempVIN[] = {0x86, 0xae, 0x28, 0x43, 0x70, 0xe0, 0x7b, 0xe9, 0x2d, 0xa1, 0xa3, 0xb3, 0x41, 0x5a, 0x6f, 0x2f, 0x41, 0x7c, 0x3c, 0x68, 0xdb, 0x10, 0x0b, 0xb2, 0xf3, 0x87, 0x29, 0xab, 0x21, 0x3f, 0x7b, 0x29};
 
 uint8_t rlp_tx[512];
-uint8_t rlp_hex_tx[512];
+uint8_t rlp_hex_tx[1024];
 ETH_TX tx;
 const uint8_t SSID[128] = {"comay"};
 const uint8_t header[3][3] = {"ID", "PW", "TX"};
@@ -176,13 +176,14 @@ void get_private_key(uint8_t* pKey)
 void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32_t longitude, uint8_t vin[32], ETH_FIELD *nonce, uint8_t *serialized_tx, uint32_t *tx_max_size)
 {
   ETH_TX tx;
-
+  storedNonce.bytes[0] = 0;
+  storedNonce.size = 0;
   memset(serialized_tx, 0, 512);
   memset(&tx, 0, sizeof(ETH_TX));
 
   // Build transaction details
   tx.chain_id = EVAN_CHAIN_ID;
-  memcpy(&tx.nonce, nonce, sizeof(ETH_FIELD));
+  memcpy(&tx.nonce.bytes, nonce, sizeof(ETH_FIELD));
   tx.nonce.size = nonce->size;
 
   memcpy(&tx.gas_price.bytes, EVAN_GAS_PRICE, sizeof(EVAN_GAS_PRICE));
@@ -212,6 +213,7 @@ void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32
 
   memcpy(parameters[index], (uint8_t*) &vin, sizeof(vin));
   parameter_sizes[index++] = 32;
+  tx.data.size = 4 + 32 * EVAN_NUM_CONTRACT_PARAMETERS;
 
   // Build data field fo tx
   build_raw_data_input(
@@ -222,7 +224,6 @@ void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32
     tx.data.bytes,
     sizeof(tx.data.bytes)
   );
-  tx.data.size = 4 + 32 * EVAN_NUM_CONTRACT_PARAMETERS;
 
   // Build, sign and serialize transaction
   get_ethereum_tx(&tx, serialized_tx, tx_max_size);
@@ -283,7 +284,7 @@ int main(void)
   const uint8_t test3[] = {0xf7, 0x17, 0xa3, 0x62, 0xd6 ,0x0b, 0x67 ,0x86 };
 
   connectWifi();
-  getEpochOverNtp(&storedNonce);
+  //getEpochOverNtp(&storedNonce);
 
   while (1)
   {

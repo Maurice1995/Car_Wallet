@@ -47,8 +47,8 @@ void sendEpochTime();
 
 volatile uint8_t WLAN_SSID[128];
 volatile uint8_t WLAN_PSWD[128];
-uint8_t ETH_TX[512];
-
+uint8_t ETH_TX[1024];
+uint8_t ADDRESS[128]= {"0x1b1c5ad12f82e3c2de69740af0f2d25384970dc6"};
 volatile uint32_t sts = 0;
 volatile uint32_t stsShadow = 0;
 volatile bool replaceShadowRegister = false;
@@ -59,17 +59,17 @@ const int httpsPort = 443;  //HTTPS= 443 and HTTP = 80
 
 //SHA1 finger print of certificate use web browser to view and copy
 const char fingerprint[] PROGMEM = "A8 C4 99 CD AC 6D 4E 55 AD EF 72 64 44 A2 F0 AA 44 FB 64 61";
-char JSONmessageBuffer[500];
+char JSONmessageBuffer[1024];
 
+StaticJsonDocument<1800> JSONbuffer;
+StaticJsonDocument<512> nonceBuffer;
 
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org", 0);
-
-
-StaticJsonDocument<800> JSONbuffer;
 WiFiClientSecure httpsClient;    //Declare object of class WiFiClient
 JsonObject doc;
+JsonObject nonceDoc;
 JsonArray data;
+JsonArray nonceData;
+
 
 void setup() {
  
@@ -81,7 +81,16 @@ void setup() {
   pinMode(D4, OUTPUT);     // Initialize the LED_BUILTIN pin as an output
   pinMode(D1, OUTPUT);
           
+  nonceDoc= nonceBuffer.to<JsonObject>();
+  nonceDoc["jsonrpc"] = "2.0";
+  nonceDoc["method"] = "eth_getTransactionCount";
+  nonceData = nonceDoc.createNestedArray("params");
+  nonceData.add((char*)ADDRESS);
+  nonceData.add("latest");
+  nonceDoc["id"] = 1;
 
+
+    serializeJson(nonceDoc, Serial);
  
   // data has been received from the master. Beware that len is always 32
   // and the buffer is autofilled with zeroes if data is less than 32 bytes long
@@ -264,11 +273,12 @@ void setup() {
             SPISlave.setStatus(sts);           
          } 
 
-           for(int i = 0 ; i < messsageLength1; i++)
+         /*  for(int i = 0 ; i < messsageLength1; i++)
           {   
-            Serial.printf("%c", ETH_TX[i]);
+            Serial.printf("%d = %c",i, ETH_TX[i]);
+                      Serial.println("");
           }
-          Serial.println("");
+          Serial.println("");*/
          }
           
 
@@ -316,7 +326,6 @@ void setup() {
 void loop() {
 
 noInterrupts();
-sendEpochTime();
 wifiConnect();
 sendTx();
 interrupts();
@@ -334,7 +343,7 @@ void statusSet(uint8_t status, uint8_t state)
     sts = sts & (~status);
   }
 }
-void sendEpochTime()
+/*void sendEpochTime()
 {
   if( ( sts & (NONCE_SENT|CONNECTED) ) ==  CONNECTED && replaceShadowRegister == false)
   {
@@ -346,11 +355,11 @@ void sendEpochTime()
     sts = epochTime;
     SPISlave.setStatus(sts);
     replaceShadowRegister = true;
-    
+   
   }
   
   
-}
+}*/
 int wifiConnect()
 {
   if( ( sts & (WIFI_READY|CONNECTED) ) ==  WIFI_READY)
@@ -446,7 +455,7 @@ void sendTx()
     data = doc.createNestedArray("params");
     data.add((char*)ETH_TX);
     doc["id"] = 1;
-    
+        serializeJson(doc, Serial);
     serializeJson(doc, JSONmessageBuffer);
     httpsClient.print(String("POST ") + "/post HTTP/1.1\r\n" +
                  "Host: " + host + "\r\n" +
