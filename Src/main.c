@@ -183,7 +183,7 @@ void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32
 
   // Build transaction details
   tx.chain_id = EVAN_CHAIN_ID;
-  memcpy(&tx.nonce.bytes, nonce, sizeof(ETH_FIELD));
+  memcpy(&tx.nonce.bytes, nonce,nonce->size);
   tx.nonce.size = nonce->size;
 
   memcpy(&tx.gas_price.bytes, EVAN_GAS_PRICE, sizeof(EVAN_GAS_PRICE));
