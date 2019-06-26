@@ -169,7 +169,10 @@ void sm_usleep(uint32_t microsec)
   // HAL_Delay(microsec);
   DWT_Delay(microsec);
 }
-
+void get_private_key(uint8_t* pKey)
+{
+  A71_GetGpData(KEY_SLOT,pKey,32);
+}
 void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32_t longitude, uint8_t vin[32], ETH_FIELD *nonce, uint8_t *serialized_tx, uint32_t *tx_max_size)
 {
   ETH_TX tx;
@@ -182,13 +185,13 @@ void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32
   memcpy(&tx.nonce, nonce, sizeof(ETH_FIELD));
   tx.nonce.size = nonce->size;
 
-  memcpy(&tx.gas_price.bytes, &EVAN_GAS_PRICE, sizeof(EVAN_GAS_PRICE));
+  memcpy(&tx.gas_price.bytes, EVAN_GAS_PRICE, sizeof(EVAN_GAS_PRICE));
   tx.gas_price.size = sizeof(EVAN_GAS_PRICE);
 
-  memcpy(&tx.gas_limit.bytes, &EVAN_GAS_LIMIT, sizeof(EVAN_GAS_LIMIT));
+  memcpy(&tx.gas_limit.bytes, EVAN_GAS_LIMIT, sizeof(EVAN_GAS_LIMIT));
   tx.gas_limit.size = sizeof(EVAN_GAS_LIMIT);
 
-  memcpy(&tx.to.bytes,&EVAN_CONTRACT, sizeof(EVAN_CONTRACT));
+  memcpy(&tx.to.bytes,EVAN_CONTRACT, sizeof(EVAN_CONTRACT));
   tx.to.size = sizeof(EVAN_CONTRACT);
   // Build contract method parameters
   uint8_t parameters[EVAN_NUM_CONTRACT_PARAMETERS][32];
