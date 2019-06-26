@@ -389,7 +389,6 @@ int wifiConnect()
         Serial.print("CANT CONNECT WIFI");
         return -1;
       }
-      timeClient.begin();
       statusSet(CONNECTED,SET);
       SPISlave.setStatus(sts);
       httpsClient.setFingerprint(fingerprint);
