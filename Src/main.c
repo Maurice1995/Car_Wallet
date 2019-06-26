@@ -183,17 +183,10 @@ void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32
   memcpy(&tx.nonce, nonce, sizeof(ETH_FIELD));
   tx.nonce.size = nonce->size;
 
-<<<<<<< HEAD
-  memcpy(&tx.gas_price.bytes, &EVAN_GAS_PRICE, sizeof(EVAN_GAS_PRICE));
-  tx.gas_price.size = sizeof(EVAN_GAS_PRICE);
-
-  memcpy(&tx.gas_limit.bytes, &EVAN_GAS_LIMIT, sizeof(EVAN_GAS_LIMIT));
-=======
   memcpy(&tx.gas_price.bytes, (uint8_t*)&EVAN_GAS_PRICE, sizeof(EVAN_GAS_PRICE));
   tx.gas_price.size = sizeof(EVAN_GAS_PRICE);
 
   memcpy(&tx.gas_limit.bytes, (uint8_t*)&EVAN_GAS_LIMIT, sizeof(EVAN_GAS_LIMIT));
->>>>>>> 23f9a0e... fix field types
   tx.gas_limit.size = sizeof(EVAN_GAS_LIMIT);
 
   memcpy(&tx.to.bytes, (uint8_t*)&EVAN_CONTRACT, sizeof(EVAN_CONTRACT));
