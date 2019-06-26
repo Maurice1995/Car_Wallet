@@ -21,8 +21,6 @@
 #include "ets_sys.h"
 #include <WiFiClientSecure.h> 
 #include <ArduinoJson.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
 
 #define WIFI_SSID "ID"
 #define WIFI_PASSWORD "PW"
