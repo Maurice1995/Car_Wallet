@@ -351,9 +351,7 @@ int sendEpochTime()
 
 if((sts & (CONNECTED|PREPARE_NONCE)) == (CONNECTED|PREPARE_NONCE))
 {
-     
-        Serial.println("prepare nonce\n");
-      
+           
       while((!httpsClient.connect(host, httpsPort)));
       
       httpsClient.print(String("POST ") + "/ HTTP/1.1\r\n" +
@@ -363,7 +361,6 @@ if((sts & (CONNECTED|PREPARE_NONCE)) == (CONNECTED|PREPARE_NONCE))
                  "Content-Length: "+String(strlen(nonceMessageBuffer)) + "\r\n\r\n");
      
       httpsClient.print(nonceMessageBuffer); 
-     
       while (httpsClient.connected()) {
         String line = httpsClient.readStringUntil('\n');
         if (line == "\r") {
@@ -546,6 +543,9 @@ void sendTx()
                  "Content-Length: "+String(strlen(JSONmessageBuffer)) + "\r\n\r\n");
      
       httpsClient.print(JSONmessageBuffer); 
+
+                 Serial.println(JSONmessageBuffer); 
+
       while (httpsClient.connected())
       {
         String line = httpsClient.readStringUntil('\n');
