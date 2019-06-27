@@ -28,7 +28,9 @@ I2C1 GPIO Configuration
     
 ## SCHEMATIC
 
-   ![Screenshot](https://user-images.githubusercontent.com/46520743/58031685-9084ab00-7b29-11e9-9fb1-8e923621bc9d.png)
+   Please refer to the Schematic on Confluence:
+   
+   https://riddleandcode.atlassian.net/wiki/spaces/DEV/pages/721453097/Car+Wallet+Hardware+Specs
 
     
 ### HOW TO RUN 
