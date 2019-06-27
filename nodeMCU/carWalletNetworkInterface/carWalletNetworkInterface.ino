@@ -21,16 +21,22 @@
 #include "ets_sys.h"
 #include <WiFiClientSecure.h> 
 #include <ArduinoJson.h>
-
+ extern "C" {
+#include "user_interface.h"
+}
 #define WIFI_SSID "ID"
 #define WIFI_PASSWORD "PW"
 #define TX_HASH "TX"
-#define SSID_READY (0b00000001)
-#define PSWD_READY (0b00000010)
-#define CONNECTED  (0b00001000)
-#define TX_READY   (0b00000100)
-#define TX_BUSY    (0b00010000)
-#define NONCE_SENT (0b00100000)
+#define REQUEST_NONCE "NC"
+#define SSID_READY    (0b00000001)
+#define PSWD_READY    (0b00000010)
+#define TX_READY      (0b00000100)
+#define CONNECTED     (0b00001000)
+#define TX_BUSY       (0b00010000)
+#define PREPARE_NONCE (0b00100000)
+#define NONCE_READY   (0b01000000)
+
+
 #define WIFI_READY (SSID_READY | PSWD_READY)
 #define SET (0x00)
 #define RESET (0x01)
@@ -41,14 +47,13 @@
 void headerExtract(uint8_t* data,uint8_t* header );
 void statusSet(uint8_t status, uint8_t state);
 int wifiConnect();
-void sendEpochTime();
+uint32_t hexStringtoInt(String const &hex);
 
 volatile uint8_t WLAN_SSID[128];
 volatile uint8_t WLAN_PSWD[128];
 uint8_t ETH_TX[1024];
-uint8_t ADDRESS[128]= {"0x1b1c5ad12f82e3c2de69740af0f2d25384970dc6"};
+uint8_t ADDRESS[128]= {"0xF4c9C990ff4662C4C4467bA7a8D1fBFb51Bd8549"};
 volatile uint32_t sts = 0;
-volatile uint32_t stsShadow = 0;
 volatile bool replaceShadowRegister = false;
 
 //Web/Server address to read/write from 
@@ -58,16 +63,18 @@ const int httpsPort = 443;  //HTTPS= 443 and HTTP = 80
 //SHA1 finger print of certificate use web browser to view and copy
 const char fingerprint[] PROGMEM = "A8 C4 99 CD AC 6D 4E 55 AD EF 72 64 44 A2 F0 AA 44 FB 64 61";
 char JSONmessageBuffer[1024];
+char nonceMessageBuffer[256];
 
 StaticJsonDocument<1800> JSONbuffer;
 StaticJsonDocument<512> nonceBuffer;
+StaticJsonDocument<256> parserBuffer;
 
 WiFiClientSecure httpsClient;    //Declare object of class WiFiClient
 JsonObject doc;
 JsonObject nonceDoc;
 JsonArray data;
 JsonArray nonceData;
-
+JsonObject parserObject;
 
 void setup() {
  
@@ -86,9 +93,8 @@ void setup() {
   nonceData.add((char*)ADDRESS);
   nonceData.add("latest");
   nonceDoc["id"] = 1;
+  serializeJson(nonceDoc, nonceMessageBuffer);
 
-
-    serializeJson(nonceDoc, Serial);
  
   // data has been received from the master. Beware that len is always 32
   // and the buffer is autofilled with zeroes if data is less than 32 bytes long
@@ -101,7 +107,6 @@ void setup() {
     static short messsageLength1;
     static short depth = 0;
     int recLen = (data[0]<<8)|data[1];
-    //Serial.printf("RECEIVE LEN IS %d\n",recLen);
    /* for(int i = 0 ; i < 32; i++)
         {   
           Serial.printf("%c", data[i]);
@@ -147,6 +152,13 @@ void setup() {
         statusSet(TX_READY,SET);
         SPISlave.setStatus(sts);
         Serial.printf("TX %d \n", sts);
+
+      }
+      else if (strcmp((const char *)header,REQUEST_NONCE) == 0 )
+      {
+        
+        statusSet(PREPARE_NONCE,SET);
+        SPISlave.setStatus(sts);
 
       }
           
@@ -300,16 +312,7 @@ void setup() {
   });
 
   // The master has read the status register
-  SPISlave.onStatusSent([]() {        
-    if(replaceShadowRegister)
-    {
-        sts = stsShadow;
-        statusSet(NONCE_SENT,SET);
-        SPISlave.setStatus(sts);
-        Serial.println("Nonce is sent");
-        replaceShadowRegister = false;
-    }
-    
+  SPISlave.onStatusSent([]() {            
   });
 
   // Setup SPI Slave registers and pins
@@ -325,6 +328,7 @@ void loop() {
 
 noInterrupts();
 wifiConnect();
+sendEpochTime();
 sendTx();
 interrupts();
 
@@ -341,23 +345,53 @@ void statusSet(uint8_t status, uint8_t state)
     sts = sts & (~status);
   }
 }
-/*void sendEpochTime()
+
+int sendEpochTime()
 {
-  if( ( sts & (NONCE_SENT|CONNECTED) ) ==  CONNECTED && replaceShadowRegister == false)
-  {
-    timeClient.update();
-    uint32_t epochTime = timeClient.getEpochTime();
-    Serial.println("");
-    Serial.printf("Epoch time is : %d\n",epochTime);
-    stsShadow = sts;
-    sts = epochTime;
-    SPISlave.setStatus(sts);
-    replaceShadowRegister = true;
+
+if((sts & (CONNECTED|PREPARE_NONCE)) == (CONNECTED|PREPARE_NONCE))
+{
+     
+        Serial.println("prepare nonce\n");
+      
+      while((!httpsClient.connect(host, httpsPort)));
+      
+      httpsClient.print(String("POST ") + "/ HTTP/1.1\r\n" +
+                 "Host: " + host + "\r\n" +
+                 "Connection: keep-alive\r\n"+
+                 "Content-Type: application/json"+ "\r\n" +
+                 "Content-Length: "+String(strlen(nonceMessageBuffer)) + "\r\n\r\n");
+     
+      httpsClient.print(nonceMessageBuffer); 
+     
+      while (httpsClient.connected()) {
+        String line = httpsClient.readStringUntil('\n');
+        if (line == "\r") {
+          break;
+        }
+    }
+      delay(100);
+      String line,httpReturn;
+      
+      while(httpsClient.available())
+      {  
+         line = httpsClient.readStringUntil('\n');  //Read Line by Line 
+         Serial.println(line);
+         deserializeJson(parserBuffer, line);
+         parserObject = parserBuffer.as<JsonObject>();
+         String nonce = parserObject[String("result")];
+         uint32_t a = hexStringtoInt(nonce);
+         sts = sts & 0x000000FF;
+         sts = sts | (a << 8);
+      }
+      statusSet(PREPARE_NONCE,RESET);
+      statusSet(NONCE_READY,SET); 
+      SPISlave.setStatus(sts);
+
    
   }
   
-  
-}*/
+}
 int wifiConnect()
 {
   if( ( sts & (WIFI_READY|CONNECTED) ) ==  WIFI_READY)
@@ -380,15 +414,12 @@ int wifiConnect()
       if(retry == 10)
       {
         
-        //noInterrupts();
         statusSet(CONNECTED|WIFI_READY,RESET);
         SPISlave.setStatus(sts);
-        //interrupts();
         Serial.print("CANT CONNECT WIFI");
         return -1;
       }
       statusSet(CONNECTED,SET);
-      SPISlave.setStatus(sts);
       httpsClient.setFingerprint(fingerprint);
       httpsClient.setTimeout(3000); // 1,5 Seconds
       Serial.println("");
@@ -396,18 +427,72 @@ int wifiConnect()
       Serial.println((const char *)WLAN_SSID);
       Serial.print("IP address: ");
       Serial.println(WiFi.localIP());  //IP address assigned to your ESP
-      delay(500);
-      return 0;
     }
-    
+
   }
+  SPISlave.setStatus(sts);
   return 0;
   
+}
+uint32_t hexStringtoInt(String const &hex)
+{
+  uint32_t num = 0;
+  size_t j = 0;
+  uint32_t power = 0;
+  size_t size = hex.length();  
+  for(size_t i = size-1 ; i>=2 ; i--,j++)
+  {
+    if (j==0)
+    {
+      power = 1;  
+    }
+    
+    else
+    {
+      power = 16<<((j-1)*4);  
+    }
+   
+    if(hex[i] == 'a' || hex[i] == 'A')
+    {
+      num = num + 10*(power);
+    }  
+
+    else if(hex[i] == 'b' || hex[i] == 'B')
+    {
+      num = num + 11*(power);
+    }  
+
+    else if(hex[i] == 'c' || hex[i] == 'C')
+    {
+      num = num + 12*(power);
+    }  
+
+    else if(hex[i] == 'd' || hex[i] == 'D')
+    {
+      num = num + 13*(power);
+    }  
+
+    else if(hex[i] == 'e' || hex[i] == 'E')
+    {
+      num = num + 14*(power);
+    }  
+    
+    else if(hex[i] == 'f' || hex[i] == 'F')
+    {
+      num = num + 15*(power);
+    } 
+    else
+    {
+      num = num + (hex[i]- 48)*power;
+    } 
+   
+  }  
+   return num;
 }
 void sendTx()
 {
   static bool ledVal = false;
-  if((sts & (TX_READY|CONNECTED)) == (TX_READY|CONNECTED) && replaceShadowRegister == false)
+  if((sts & (TX_READY|CONNECTED)) == (TX_READY|CONNECTED))
   {
     statusSet(TX_BUSY,SET);
     statusSet(TX_READY,RESET);
@@ -421,26 +506,26 @@ void sendTx()
     else
     {
       int r=0; //retry counter
-      while((!httpsClient.connect(host, httpsPort)) && (r < 30)){
+      while((!httpsClient.connect(host, httpsPort)) && (r < 30))
+      {
         delay(100);
         r++;
-    }
-    if(r==30) {
+      }
+      
+     if(r==30) 
+     {
       Serial.println("Connection failed");
       if( WiFi.status() != WL_CONNECTED )
       {
-        //noInterrupts();
         statusSet(CONNECTED,RESET);
-        //interrupts();
       }
-      //noInterrupts();
       statusSet(TX_BUSY,RESET);
       SPISlave.setStatus(sts);
-     // interrupts();
 
       return;
     }
-    else {
+    else 
+    {
       Serial.println("Connected to web");
     }
     
@@ -452,7 +537,7 @@ void sendTx()
     data = doc.createNestedArray("params");
     data.add((char*)ETH_TX);
     doc["id"] = 1;
-        serializeJson(doc, Serial);
+        
     serializeJson(doc, JSONmessageBuffer);
     httpsClient.print(String("POST ") + "/post HTTP/1.1\r\n" +
                  "Host: " + host + "\r\n" +
@@ -461,20 +546,22 @@ void sendTx()
                  "Content-Length: "+String(strlen(JSONmessageBuffer)) + "\r\n\r\n");
      
       httpsClient.print(JSONmessageBuffer); 
-      httpsClient.print ("\n}");
-      while (httpsClient.connected()) {
+      while (httpsClient.connected())
+      {
         String line = httpsClient.readStringUntil('\n');
-        if (line == "\r") {
+        if (line == "\r") 
+        {
           break;
         }
-    }
+      }
   
       delay(100);
       String line,httpReturn;
       
-      while(httpsClient.available()){  
+      while(httpsClient.available())
+      {  
         line = httpsClient.readStringUntil('\n');  //Read Line by Line 
-Serial.println(line); //Print response
+        Serial.println(line); //Print response
         if (memcmp(line.c_str(),"HTTP",4)==0)
         {  httpReturn = line.substring(9,12);
            Serial.println(httpReturn); //Print response
@@ -483,7 +570,7 @@ Serial.println(line); //Print response
         }    
        
       } 
-
+        statusSet(NONCE_READY,RESET);
         statusSet(TX_BUSY,RESET);
         SPISlave.setStatus(sts);
   

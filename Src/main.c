@@ -45,10 +45,11 @@
 #define KEY_SLOT ((uint16_t)2)
 #define NONCE_SLOT ((uint16_t)40)
 #define NONCE_SIZE_SLOT ((uint16_t)104)
-#define CONNECTED (0b00001000)
-#define TX_BUSY (0b00010000)
-#define SSID_READY (0b00000001)
-#define PSWD_READY (0b00000010)
+#define CONNECTED   (0b00001000)
+#define TX_BUSY     (0b00010000)
+#define SSID_READY  (0b00000001)
+#define PSWD_READY  (0b00000010)
+#define NONCE_READY (0b01000000)
 #define MAS_MULTIPLIER 0.3017485143159276406820527 
 
 
@@ -99,8 +100,9 @@ uint8_t tempVIN[] = {0x86, 0xae, 0x28, 0x43, 0x70, 0xe0, 0x7b, 0xe9, 0x2d, 0xa1,
 uint8_t rlp_tx[512];
 uint8_t rlp_hex_tx[1024];
 ETH_TX tx;
+const uint8_t ADDRESS[128] = {"DUMMY"};
 const uint8_t SSID[128] = {"comay"};
-const uint8_t header[3][3] = {"ID", "PW", "TX"};
+const uint8_t header[5][3] = {"ID", "PW", "TX", "NC", "DR"};
 const uint8_t PSWD[128] = {"111comay989"};
 uint8_t status[4];
 ETH_FIELD storedNonce;
@@ -129,7 +131,7 @@ void generateIdentity();
 void InitializeTimer();
 int readNonce(ETH_FIELD *nonce);
 int updateNonce(ETH_FIELD *nonce);
-int getEpochOverNtp(ETH_FIELD *nonce);
+int getNonce(ETH_FIELD *nonce);
 void   increaseNonce();
 static int processing_time = 0;
 static volatile int start_processing = false;
@@ -176,8 +178,6 @@ void get_private_key(uint8_t* pKey)
 void get_transaction(uint16_t speed, uint32_t mileage, uint32_t latitude, uint32_t longitude, uint8_t vin[32], ETH_FIELD *nonce, uint8_t *serialized_tx, uint32_t *tx_max_size)
 {
   ETH_TX tx;
-  storedNonce.bytes[0] = 2;
-  storedNonce.size = 1;
   memset(serialized_tx, 0, 512);
   memset(&tx, 0, sizeof(ETH_TX));
 
@@ -284,7 +284,7 @@ int main(void)
   const uint8_t test3[] = {0xf7, 0x17, 0xa3, 0x62, 0xd6 ,0x0b, 0x67 ,0x86 };
 
   connectWifi();
-  //getEpochOverNtp(&storedNonce);
+  getNonce(&storedNonce);
 
   while (1)
   {
@@ -335,7 +335,7 @@ int main(void)
         get_transaction(disp_vel,odo,latitude,longitude,tempVIN,&storedNonce,rlp_tx,&serialized_tx_size);
         toHex(rlp_tx,rlp_hex_tx,serialized_tx_size);
         sendTx(rlp_hex_tx, serialized_tx_size*2+2);
-        //sendTx(testTx, sizeof(testTx));
+        getNonce(&storedNonce);
 
       }
 
@@ -715,7 +715,7 @@ int connectWifi()
 }
 
 
-int getEpochOverNtp(ETH_FIELD *nonce)
+int getNonce(ETH_FIELD *nonce)
 {
   int rv = HAL_ERROR;
   rv = spiReadStatus(status);
@@ -724,19 +724,36 @@ int getEpochOverNtp(ETH_FIELD *nonce)
     return rv;
   }
   HAL_Delay(100);
-
-  while ((status[3] == 0))
+  if(!(status[0]&NONCE_READY))
   {
-    rv = spiReadStatus(status);
+    rv = spiWrite(ADDRESS, strlen(ADDRESS), header[3], strlen(header[3]));
     if (rv != HAL_OK)
     {
       return rv;
     }
     HAL_Delay(100);
 
+    while (!(status[0]&NONCE_READY))
+    {
+      rv = spiReadStatus(status);
+      if (rv != HAL_OK)
+      {
+        return rv;
+      }
+      HAL_Delay(100);
+
+    }
   }
-  memcpy(nonce->bytes,status,4);
-  nonce->size = 4;
+  memcpy(nonce->bytes,status+1,3);
+  if(status[1] == 0 && status[2] == 0 && status[3] == 0 )
+  nonce->size = 0;
+  else if (status[1] != 0 && status[2] == 0 && status[3] == 0 )
+  nonce->size = 1;
+  else if (status[3] != 0 )
+  nonce->size = 3;
+  else if (status[2] != 0 && status[3] == 0  )
+  nonce->size = 2;
+
   return 0;
 }
 
